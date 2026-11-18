@@ -1,11 +1,16 @@
 ﻿
 namespace WorkLog.Domain.Entities;
 
+/// <summary>
+/// プロジェクトマスタ
+/// </summary>
 public sealed class Project
 {
     public Guid Id { get; private set; }
 
     public string Name { get; private set; } = string.Empty;
+
+    public string NormalizedName { get; private set; } = string.Empty;
 
     public string? Description { get; private set; }
 
@@ -25,6 +30,7 @@ public sealed class Project
         Id = Guid.NewGuid();
 
         Name = NormalizeName(name);
+        NormalizedName = Name.ToUpperInvariant();
         Description = NormalizeDescription(description);
 
         IsActive = true;
@@ -36,6 +42,7 @@ public sealed class Project
     public void Update(string name, string? description)
     {
         Name = NormalizeName(name);
+        NormalizedName = Name.ToUpperInvariant();
         Description = NormalizeDescription(description);
 
         UpdatedAt = DateTimeOffset.UtcNow;

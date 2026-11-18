@@ -1,6 +1,9 @@
 ﻿
 namespace WorkLog.Domain.Entities;
 
+/// <summary>
+/// 作業実績
+/// </summary>
 public sealed class WorkLogEntry
 {
     public Guid Id { get; private set; }
