@@ -1,0 +1,20 @@
+services:
+  postgres-test:
+    image: postgres:17
+    container_name: worklog-postgres-test
+    environment:
+      POSTGRES_DB: worklog_test
+      POSTGRES_USER: worklog_user
+      POSTGRES_PASSWORD: worklog_test_password
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - worklog_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worklog_user -d worklog_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  worklog_test_data:
