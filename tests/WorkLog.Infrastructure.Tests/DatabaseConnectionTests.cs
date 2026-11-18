@@ -1,78 +1,75 @@
 ﻿
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using WorkLog.Infrastructure.Persistence;
 
 namespace WorkLog.Infrastructure.Tests;
 
-public class DatabaseConnectionTests
+public class DatabaseConnectionTests(TestDatabaseFixture fixture)
+    : IClassFixture<TestDatabaseFixture>
 {
-    // compose.yaml のデフォルト値と同じ。
-    // 環境変数が未設定のローカル実行でも同じ安全ガードが働くようにする。
-    private const string DefaultPort = "5435";
-    private const string DefaultDatabase = "worklog_test";
-    private const string DefaultUsername = "worklog_user";
-
     [Fact]
     public async Task CanConnectToTestDatabase()
     {
         // Arrange
-        var connectionString =
-            Environment.GetEnvironmentVariable(
-                "WORKLOG_TEST_CONNECTION_STRING");
-
-        Assert.False(
-            string.IsNullOrWhiteSpace(connectionString),
-            "テスト用接続文字列が設定されていません。");
-
-        var builder = new NpgsqlConnectionStringBuilder(connectionString);
-
-        // 安全ガード：ループバック上のテスト用データベース以外には接続しない。
-        // 期待値は compose.yaml と同じ環境変数から導出し、二重定義を防ぐ。
-        // Host だけは意図的に固定する（リモートの DB をテスト対象にしない）。
-        Assert.Equal("localhost", builder.Host);
-        Assert.Equal(ExpectedPort(), builder.Port);
-        Assert.Equal(
-            EnvOrDefault("WORKLOG_TEST_DB", DefaultDatabase),
-            builder.Database);
-        Assert.Equal(
-            EnvOrDefault("WORKLOG_TEST_USER", DefaultUsername),
-            builder.Username);
-
-        var options = new DbContextOptionsBuilder<WorkLogDbContext>()
-            .UseNpgsql(builder.ConnectionString)
-            .Options;
-
-        await using var dbContext = new WorkLogDbContext(options);
+        // fixture の構築時点で安全ガードが検証済みのため、ここでは接続可否だけを見る。
+        await using var dbContext = fixture.CreateDbContext();
 
         // Act
         var canConnect = await dbContext.Database.CanConnectAsync();
 
+        // Assert
         Assert.True(canConnect);
-
-        // テストDBに未適用のマイグレーションを適用する
-        await dbContext.Database.MigrateAsync();
-
-        // Assert: マイグレーション後のテーブルにアクセスできること
-        var projectsExist = await dbContext.Projects.AnyAsync();
-
-        Assert.False(projectsExist);
     }
 
-    private static string EnvOrDefault(string name, string defaultValue)
+    [Fact]
+    public void Guard_ShouldRejectNonLoopbackHost()
     {
-        var value = Environment.GetEnvironmentVariable(name);
-        return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
+        var connectionString =
+            ConnectionStringWith(b => b.Host = "db.internal.example");
+
+        Assert.Throws<InvalidOperationException>(
+            () => TestDatabaseFixture.Validate(connectionString));
     }
 
-    private static int ExpectedPort()
+    [Fact]
+    public void Guard_ShouldRejectUnexpectedPort()
     {
-        var raw = EnvOrDefault("WORKLOG_TEST_PORT", DefaultPort);
+        var connectionString =
+            ConnectionStringWith(b => b.Port = b.Port == 59999 ? 59998 : 59999);
 
-        Assert.True(
-            int.TryParse(raw, out var port),
-            $"WORKLOG_TEST_PORT が数値ではありません: {raw}");
+        Assert.Throws<InvalidOperationException>(
+            () => TestDatabaseFixture.Validate(connectionString));
+    }
 
-        return port;
+    [Fact]
+    public void Guard_ShouldRejectUnexpectedDatabase()
+    {
+        var connectionString =
+            ConnectionStringWith(b => b.Database = "worklog_production");
+
+        Assert.Throws<InvalidOperationException>(
+            () => TestDatabaseFixture.Validate(connectionString));
+    }
+
+    [Fact]
+    public void Guard_ShouldRejectUnexpectedUsername()
+    {
+        var connectionString =
+            ConnectionStringWith(b => b.Username = "postgres");
+
+        Assert.Throws<InvalidOperationException>(
+            () => TestDatabaseFixture.Validate(connectionString));
+    }
+
+    // 許可された接続文字列を複製し、1項目だけ意図的にずらす。
+    private string ConnectionStringWith(
+        Action<NpgsqlConnectionStringBuilder> mutate)
+    {
+        var builder =
+            new NpgsqlConnectionStringBuilder(fixture.ConnectionString);
+
+        mutate(builder);
+
+        return builder.ConnectionString;
     }
 }
