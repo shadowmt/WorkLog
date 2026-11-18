@@ -1,8 +1,8 @@
+using WorkLog.Api.Endpoints;
 using WorkLog.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("WorkLog");
@@ -21,7 +21,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.MapProjectEndpoints();
+
 app.UseHttpsRedirection();
-app.MapControllers();
 
 app.Run();
