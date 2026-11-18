@@ -26,7 +26,6 @@ jobs:
     env:
       WORKLOG_TEST_DB: worklog_test
       WORKLOG_TEST_USER: worklog_user
-      WORKLOG_TEST_PASSWORD: worklog_test_password
       WORKLOG_TEST_PORT: '5435'
 
     steps:
@@ -37,6 +36,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      # compose.yaml は WORKLOG_TEST_PASSWORD を必須にしている。
+      # テスト用 DB の使い捨ての値をリポジトリにコミットしないよう、
+      # 実行のたびにランダム生成して渡す。値はランナーと共に破棄される。
+      - name: Generate test database password
+        run: echo "WORKLOG_TEST_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
 
       # ローカルと同じ compose.yaml を使う。--wait は healthcheck が
       # healthy になるまで待機するため、接続待ちの処理は不要。
