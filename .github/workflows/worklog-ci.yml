@@ -7,9 +7,18 @@ on:
   pull_request:
     branches: [ main ]
 
+# CI はチェックアウトとビルド・テストのみを行うため、
+# contents の読み取り権限だけで十分
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # PostgreSQL の起動待ち・復元・ビルド・テストを含めた実用上の上限。
+    # ハングしたジョブを放置しないために設定する。
+    timeout-minutes: 15
 
     # PostgreSQL の設定は compose.yaml に集約する。
     # ここで定義した値を compose.yaml と接続文字列の両方に渡すため、
@@ -50,11 +59,40 @@ jobs:
       - name: Build API
         run: dotnet build WorkLog.Api/WorkLog.Api.csproj --no-restore -c Release
 
+      # coverlet.collector が参照されているだけでは動作しないため、
+      # --collect で明示的に XPlat Code Coverage を有効にする。
       - name: Run Domain tests
-        run: dotnet test tests/WorkLog.Domain.Tests/ --no-restore
+        run: >-
+          dotnet test tests/WorkLog.Domain.Tests/ --no-restore
+          --results-directory TestResults
+          --logger "trx;LogFileName=domain.trx"
+          --collect:"XPlat Code Coverage"
 
       - name: Run Infrastructure tests
-        run: dotnet test tests/WorkLog.Infrastructure.Tests/ --no-restore
+        run: >-
+          dotnet test tests/WorkLog.Infrastructure.Tests/ --no-restore
+          --results-directory TestResults
+          --logger "trx;LogFileName=infrastructure.trx"
+          --collect:"XPlat Code Coverage"
+
+      # テストが失敗しても解析に必要なので、キャンセル時以外アップロードする
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: error
+
+      # Cobertura 形式のため Codecov 等のツールにそのまま食わせられる。
+      # データコレクタの作業用フォルダにも同名ファイルが生成されるため、
+      # TestResults 直下の結果フォルダのみを対象にして重複を防ぐ。
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: TestResults/*/coverage.cobertura.xml
+          if-no-files-found: error
 
       # compose 方式ではコンテナのログが自動では出ないため、失敗時のみ収集する
       - name: Dump PostgreSQL logs on failure
