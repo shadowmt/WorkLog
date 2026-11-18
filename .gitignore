@@ -1,0 +1,103 @@
+# ============================================================
+# WorkLog .gitignore  (.NET 10 / WinUI 3 / ASP.NET Core / EF Core)
+# ============================================================
+
+# ---- ビルド出力 ----
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Pp]ublish/
+artifacts/
+[Bb]enchmarkDotNet.Artifacts/
+*.binlog
+*.binlog-msbuild
+
+# ---- Visual Studio 一時ファイル・キャッシュ ----
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.dbmdl
+*.jfm
+*.cache
+*.tmp
+*.tlog
+
+# ---- 解析・計測・テスト結果 ----
+TestResults/
+*.trx
+*.coverage
+*.coverage.cobertura.xml
+*.coverage
+*.dotCover
+*.pses
+*.vsp
+*.vspx
+*.sap
+Coverage*.xml
+Coverage*.slnx
+
+# ---- JetBrains / VS Code ----
+.idea/
+*.DotSettings.user
+_ReSharper*/
+.vscode/
+*.code-workspace
+
+# ---- NuGet ----
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+# ローカルツールマニフェスト（.config/dotnet-tools.json）はコミットしてください
+
+# ---- MSIX / パッケージング成果物 ----
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.appinstaller
+# 証明書の秘密情報は絶対にコミットしないこと
+*.pfx
+*.pvk
+*.cer
+*.spc
+# NOTE: Package.StoreAssociation.xml（ストアアプリの識別子）は
+#       再発行に必要なため通常はコミットします。ここでは除外していません。
+
+# ---- 認証情報・ローカル専用設定 ----
+# 接続文字列や API キーは User Secrets / 環境変数を使用してください
+appsettings.local.json
+appsettings.*.local.json
+secrets.json
+*.env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.secret
+
+# ---- PostgreSQL / EF Core のローカル成果物 ----
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+# NOTE: EF Core のマイグレーション（Migrations/）は必ずコミットしてください
+
+# ---- Windows 既知のファイル ----
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---- macOS（他環境の開発者が使う場合に備えて） ----
+.DS_Store
