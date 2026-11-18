@@ -9,8 +9,9 @@
 
 | 領域 | 状態 | 備考 |
 | --- | --- | --- |
-| プロジェクト構成（Client / Api / Infrastructure） | ✅ 実装済み | 3 プロジェクト + `Directory.Packages.props` によるバージョン一元管理 |
+| プロジェクト構成（Client / Api / Infrastructure / Domain） | ✅ 実装済み | 4 プロジェクト + `Directory.Packages.props` によるバージョン一元管理 |
 | Web API のホスト構成 | ✅ 実装済み | Controllers + OpenAPI + Npgsql 接続の DI 登録まで |
+| ドメインエンティティ | 🟡 途中 | `WorkLog.Domain` に `Project` / `WorkLogEntry` を追加。まだ `DbContext` には未接続 |
 | データベースモデル | ⬜ 未実装 | `WorkLogDbContext` は空の実装 |
 | EF Core マイグレーション | ⬜ 未実装 | 下記「マイグレーション」参照 |
 | 作業時間の記録機能 | ⬜ 未実装 | Client は WinUI テンプレートのサンプル（カウンター）のみ |
@@ -40,8 +41,9 @@
 
 ```mermaid
 graph LR
-	A[WorkLog<br/>WinUI 3 クライアント] -->|HTTP / JSON| B[WorkLog.Api<br/>ASP.NET Core Web API]
+	A[WorkLog.Client<br/>WinUI 3 クライアント] -->|HTTP / JSON| B[WorkLog.Api<br/>ASP.NET Core Web API]
 	B --> C[WorkLog.Infrastructure<br/>EF Core + Npgsql]
+	C --> E[WorkLog.Domain<br/>ドメインエンティティ]
 	C --> D[(PostgreSQL)]
 ```
 
@@ -49,7 +51,8 @@ graph LR
 | --- | --- | --- |
 | `WorkLog.Client/` | WinUI 3 アプリ | UI と ViewModel。HTTP クライアントのみを持ち、DB には直接接続しない |
 | `WorkLog.Api/` | ASP.NET Core Web API | HTTP エンドポイント、認証・認可、入力検証 |
-| `WorkLog.Infrastructure/` | クラスライブラリ | `DbContext`、エンティティ、リポジトリ、`AddInfrastructure()` |
+| `WorkLog.Infrastructure/` | クラスライブラリ | `DbContext`、EF Core マッピング、リポジトリ、`AddInfrastructure()` |
+| `WorkLog.Domain/` | クラスライブラリ | ドメインエンティティ（`Project` / `WorkLogEntry`）。EF Core や ASP.NET への依存を持たない純粋な層 |
 
 > [!IMPORTANT]
 > EF Core と Npgsql は **Infrastructure に閉じ込めてください**。Client は Release で `PublishTrimmed=True` が有効になっており、リフレクションを多用する EF Core を Client に載せるのは推奨されません。
@@ -74,6 +77,8 @@ graph LR
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Visual Studio 2022 以降 + **ASP.NET and web development** および **.NET Desktop Development** ワークロード
+- **Windows SDK `10.0.26100.0`**（Visual Studio Installer の「個別のコンポーネント」タブで導入）
+  - クライアントの `TargetPlatformVersion` と同じメジャーバージョンが必要です。未導入または断片インストールの状態だと、MSIX パッケージ生成が「指定されたモジュールが見つかりません」で失敗します（下記「解決済みの問題」参照）
 - Windows 10 バージョン 1809（ビルド 17763）以降
 - PostgreSQL サーバー（ローカル開発用で可）
 
@@ -163,16 +168,41 @@ dotnet build WorkLog.slnx
 ### 動作確認済みのコマンド
 
 ```powershell
-# MSIX パッケージ生成を無効化してビルド（この環境では成功を確認済み）
-dotnet build WorkLog.slnx -p:EnableMsixTooling=false -p:Platform=x64
+# MSIX パッケージ生成を含むフルビルド（成功を確認済み）
+dotnet build WorkLog.slnx -p:Platform=x64
 ```
+
+> [!NOTE]
+> クライアントは `Platforms` が `x86;x64;ARM64` で RID がプラットフォームに紐付くため、`restore` と `build` で `-p:Platform` を一致させてください。既定（x86）で復元した後に `-p:Platform=x64` でビルドすると `NETSDK1047` になります。
 
 ### 既知の問題
 
 | 事象 | 内容 | 回避策 / 状態 |
 | --- | --- | --- |
-| `APPX0002` / `MSB4018` | MSIX パッケージ生成タスク `WinAppSdkGenerateAppxPackageRecipe` が「指定されたモジュールが見つかりません」で失敗する | `-p:EnableMsixTooling=false` で回避。**環境側のツールセットに起因する可能性が高く、未調査** |
 | `MVVMTK0045`（警告 2 件） | `[ObservableProperty]` が WinRT の AOT シナリオで非対応 | WinUI 3 では partial プロパティへ移行することが MVVM Toolkit のドキュメントで推奨されている。**未対応** |
+
+### 解決済みの問題
+
+#### `APPX0002` / `MSB4018`（2026-11-18 解決）
+
+MSIX パッケージ生成タスク `WinAppSdkGenerateAppxPackageRecipe` が `Win32Exception (0x80004005)`（`ERROR_MOD_NOT_FOUND`）で失敗していました。
+
+原因は **Windows SDK のバージョン不一致**です。MSIX ビルドツール（`Microsoft.Build.Msix.MrmSupportLibraryResourceIndexMap`）は、MSBuild プロパティ `MrmSupportLibraryPath` が指す NuGet 上の `Microsoft.Windows.SDK.BuildTools` の DLL を使わず、インストール済み Windows SDK からパスを組み直して読み込みます。
+
+```csharp
+// GetLocation() が返すパスに差し替えられてから LoadLibraryW される
+Path.Combine(<SDK Path>, "bin", <SDK が選ぶ最新 UAP ターゲットバージョン>, <アーキテクチャ>, "MrmSupport.dll")
+```
+
+この環境では Windows SDK が断片化してインストールされており、SDK 側が選ぶバージョン（`10.0.14393.0`）の `bin\x64\` に `MrmSupport.dll` が存在しなかったためロードに失敗していました。NuGet の `Microsoft.Windows.SDK.BuildTools` のバージョンが原因ではありません（その DLL 自体は正常にロードできます）。
+
+**対処**: Visual Studio Installer の「個別のコンポーネント」から **Windows SDK `10.0.26100.0`** を導入し、PC を再起動しました。以降は `-p:EnableMsixTooling=false` を付けずにビルドできます。
+
+```powershell
+# SDK のバージョン付き bin に MrmSupport.dll があるかの確認
+Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter MrmSupport.dll -Recurse |
+  Select-Object -ExpandProperty FullName
+```
 
 ## パッケージバージョン管理の方針
 
