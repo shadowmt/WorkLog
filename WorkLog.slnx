@@ -4,6 +4,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/tests/">
+    <Project Path="tests/WorkLog.Domain.Tests/WorkLog.Domain.Tests.csproj" />
+  </Folder>
   <Project Path="WorkLog.Api/WorkLog.Api.csproj" />
   <Project Path="WorkLog.Client/WorkLog.Client.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
