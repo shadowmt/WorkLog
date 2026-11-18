@@ -4,6 +4,7 @@ using WorkLog.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddValidation();
 
 var connectionString = builder.Configuration.GetConnectionString("WorkLog");
 if (string.IsNullOrWhiteSpace(connectionString))
