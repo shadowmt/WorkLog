@@ -2,16 +2,19 @@ services:
   postgres-test:
     image: postgres:17
     container_name: worklog-postgres-test
+    # 値は環境変数で上書きできるようにし、未設定時はデフォルトで単独起動できる。
+    # GitHub Actions ではワークフローの env と同じ値が渡され、
+    # コンテナ設定とテストの接続文字列が常に一致する。
     environment:
-      POSTGRES_DB: worklog_test
-      POSTGRES_USER: worklog_user
-      POSTGRES_PASSWORD: worklog_test_password
+      POSTGRES_DB: ${WORKLOG_TEST_DB:-worklog_test}
+      POSTGRES_USER: ${WORKLOG_TEST_USER:-worklog_user}
+      POSTGRES_PASSWORD: ${WORKLOG_TEST_PASSWORD:-worklog_test_password}
     ports:
-      - "127.0.0.1:5435:5432"
+      - "127.0.0.1:${WORKLOG_TEST_PORT:-5435}:5432"
     volumes:
       - worklog_test_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U worklog_user -d worklog_test"]
+      test: ["CMD-SHELL", "pg_isready -U ${WORKLOG_TEST_USER:-worklog_user} -d ${WORKLOG_TEST_DB:-worklog_test}"]
       interval: 5s
       timeout: 5s
       retries: 5

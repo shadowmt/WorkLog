@@ -11,23 +11,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: worklog_test
-          POSTGRES_USER: worklog_user
-          POSTGRES_PASSWORD: worklog_test_password
-        ports:
-          - 5435:5432
-        options: >-
-          --health-cmd "pg_isready -U worklog_user -d worklog_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
+    # PostgreSQL の設定は compose.yaml に集約する。
+    # ここで定義した値を compose.yaml と接続文字列の両方に渡すため、
+    # 二重定義による不整合が起こらない。
     env:
-      WORKLOG_TEST_CONNECTION_STRING: Host=localhost;Port=5435;Database=worklog_test;Username=worklog_user;Password=worklog_test_password
+      WORKLOG_TEST_DB: worklog_test
+      WORKLOG_TEST_USER: worklog_user
+      WORKLOG_TEST_PASSWORD: worklog_test_password
+      WORKLOG_TEST_PORT: '5435'
 
     steps:
       - name: Checkout repository
@@ -37,6 +28,16 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      # ローカルと同じ compose.yaml を使う。--wait は healthcheck が
+      # healthy になるまで待機するため、接続待ちの処理は不要。
+      - name: Start PostgreSQL from compose.yaml
+        run: docker compose up -d --wait postgres-test
+
+      # compose.yaml と同じ env の値から接続文字列を組み立てる。
+      - name: Build test connection string
+        run: |
+          echo "WORKLOG_TEST_CONNECTION_STRING=Host=localhost;Port=$WORKLOG_TEST_PORT;Database=$WORKLOG_TEST_DB;Username=$WORKLOG_TEST_USER;Password=$WORKLOG_TEST_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Restore dependencies
         run: |
@@ -54,3 +55,8 @@ jobs:
 
       - name: Run Infrastructure tests
         run: dotnet test tests/WorkLog.Infrastructure.Tests/ --no-restore
+
+      # compose 方式ではコンテナのログが自動では出ないため、失敗時のみ収集する
+      - name: Dump PostgreSQL logs on failure
+        if: failure()
+        run: docker compose logs --no-color postgres-test
