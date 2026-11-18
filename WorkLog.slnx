@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/tests/">
     <Project Path="tests/WorkLog.Domain.Tests/WorkLog.Domain.Tests.csproj" />
+    <Project Path="tests/WorkLog.Infrastructure.Tests/WorkLog.Infrastructure.Tests.csproj" />
   </Folder>
   <Project Path="WorkLog.Api/WorkLog.Api.csproj" />
   <Project Path="WorkLog.Client/WorkLog.Client.csproj">
