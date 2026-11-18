@@ -11,4 +11,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorkLog.Domain\WorkLog.Domain.csproj" />
+  </ItemGroup>
 </Project>
