@@ -211,11 +211,78 @@ Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter MrmSupport.
 - Npgsql プロバイダは EF Core を `[10.0.4, 11.0.0)` の範囲で要求するため、EF Core を 11 系に上げると解決に失敗します。EF Core 11 へ移行する場合は、Npgsql の安定版リリースを待ってください。
 - DB 系パッケージに `Version="*"`（フロート）は使用しません。
 
+## コミット前チェック（pre-commit ハーネス）
+
+[`scripts/check.ps1`](scripts/check.ps1) が **リンター → ビルド → テスト** の順に実行し、1 つでも失敗すれば終了コード 1 を返します。
+`pre-commit` フックがこのスクリプトを呼ぶため、チェックを通過しない変更はコミットできません。
+
+### セットアップ（クローン後に 1 回）
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-git-hooks.ps1
+```
+
+Git のフックは `.git` 内に置くためリポジトリに含められません。
+このスクリプトは `core.hooksPath` を `.githooks/` に向けるだけで、フック自体はリポジトリで共有されます。
+
+### 実行されるチェック
+
+| # | チェック | 内容 | DB 未起動時 |
+| --- | --- | --- | --- |
+| 1 | リンター | `dotnet format <project> --verify-no-changes` | 失敗 |
+| 2 | ビルド | `dotnet build <project> -c Release` | 失敗 |
+| 3 | 単体テスト | `dotnet test tests/WorkLog.Domain.Tests -c Release` | 失敗 |
+| 4 | 統合テスト | `dotnet test tests/WorkLog.Infrastructure.Tests -c Release` | SKIP |
+
+対象プロジェクトは CI と同じです。`WorkLog.Client` は MSIX / Windows SDK のビルドが必要なため既定では対象外で、`-FullSolution` を指定したときだけ含まれます。
+
+### リンターが検出するもの
+
+[`.editorconfig`](.editorconfig) で `IDE0005`（未使用の using）を警告へ昇格させています。
+`dotnet format` は .editorconfig で有効化しない限りこの規則を適用しないため、設定が前提になります。
+
+```csharp
+// 未使用の using → pre-commit で失敗する
+using System.Xml;
+```
+
+EF Core のマイグレーション（`Persistence/Migrations/`）は再生成で未使用の using が戻るため、IDE0005 の対象から除外しています。
+
+### オプション
+
+| オプション | 挙動 |
+| --- | --- |
+| `-Fix` | `dotnet format` を適用（整形・未使用 using の削除）してからビルドとテストを実行 |
+| `-SkipFormat` / `-SkipBuild` / `-SkipTests` | 該当ステップをスキップ |
+| `-Strict` | 統合テストが実行できない場合も失敗させる（CI 相当の厳密さ） |
+| `-FullSolution` | `WorkLog.slnx` 全体をビルド（`-p:Platform=x64`） |
+
+### 統合テストの接続情報
+
+`TestDatabaseFixture` は `WORKLOG_TEST_CONNECTION_STRING` を参照します。未設定の場合は `.env`（`WORKLOG_TEST_PASSWORD` が必要）から組み立て、`127.0.0.1:<WORKLOG_TEST_PORT>` へ TCP 疎通を確認します。DB が起動していなければ SKIP として扱います（`-Strict` なら失敗）。
+
+```powershell
+docker compose up -d --wait postgres-test
+```
+
+### 一時的な回避
+
+```powershell
+# フック自体をバイパス
+git commit --no-verify
+
+# フックは走るがチェックをスキップ
+$env:WORKLOG_SKIP_CHECKS = 1
+git commit
+```
+
+CI は別のワークフローで走るため、`main` に積む前に手元でフル実行してください。
+
 ## 開発ルール（TODO: 要決定）
 
 - ブランチ戦略: <!-- TODO: 例 trunk-based / GitHub Flow -->
 - コミット規約: <!-- TODO: 例 Conventional Commits -->
-- コードスタイル: `dotnet format` を統一ツールとして使用
+- コードスタイル: `dotnet format` を統一ツールとして使用（`.editorconfig` でルール定義、pre-commit ハーネスで強制）
 - レビュー: <!-- TODO: PR ルール -->
 
 ## セキュリティ上の注意

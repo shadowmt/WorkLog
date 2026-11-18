@@ -1,0 +1,41 @@
+root = true
+
+# ---------------------------------------------------------------
+# 共通
+# ---------------------------------------------------------------
+# 改行コードと文字コードは Git と各ファイルの既存設定に任せる。
+# ここで end_of_line / charset を指定すると dotnet format が全ファイルを
+# 書き換えて差分を膨らませるため、意図的に設定しない。
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{csproj,props,targets,yml,yaml,json,slnx,editorconfig}]
+indent_style = space
+indent_size = 2
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# ---------------------------------------------------------------
+# リンター: CI / pre-commit で失敗させるルール
+# ---------------------------------------------------------------
+
+# 未使用の using を検出する。
+# dotnet format は .editorconfig で有効化しないとこの規則を適用しないため、
+# 明示的に警告へ昇格させる。
+dotnet_diagnostic.IDE0005.severity = warning
+
+# ---------------------------------------------------------------
+# コードスタイル
+# ---------------------------------------------------------------
+csharp_using_directive_placement = outside_namespace:warning
+
+# ---------------------------------------------------------------
+# ツール生成コード
+# ---------------------------------------------------------------
+# EF Core のマイグレーションは再生成時に未使用の using が再挿入されるため、
+# IDE0005 の対象から除外する。
+[**/Persistence/Migrations/**.cs]
+dotnet_diagnostic.IDE0005.severity = none

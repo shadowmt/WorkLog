@@ -1,6 +1,4 @@
-﻿
-using System;
-using WorkLog.Domain.Entities;
+﻿using WorkLog.Domain.Entities;
 
 namespace WorkLog.Domain.Tests;
 

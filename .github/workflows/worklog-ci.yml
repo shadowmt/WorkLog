@@ -59,6 +59,17 @@ jobs:
           dotnet restore tests/WorkLog.Domain.Tests/
           dotnet restore tests/WorkLog.Infrastructure.Tests/
 
+      # ローカルの pre-commit ハーネス（scripts/check.ps1）と同じ整形チェック。
+      # --no-verify でローカルを回避した変更をここで止める。
+      # 対象は WorkLog.Client を除く CI ビルド対象と同じ。
+      - name: Lint (dotnet format)
+        run: |
+          dotnet format WorkLog.Api/WorkLog.Api.csproj --verify-no-changes
+          dotnet format WorkLog.Domain/WorkLog.Domain.csproj --verify-no-changes
+          dotnet format WorkLog.Infrastructure/WorkLog.Infrastructure.csproj --verify-no-changes
+          dotnet format tests/WorkLog.Domain.Tests/ --verify-no-changes
+          dotnet format tests/WorkLog.Infrastructure.Tests/ --verify-no-changes
+
       # テストプロジェクトは WorkLog.Api を参照しないため、明示的にビルドして
       # API 層のコンパイル破綻を CI で検出する
       - name: Build API

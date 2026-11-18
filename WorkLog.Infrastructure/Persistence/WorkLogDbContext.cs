@@ -10,7 +10,7 @@ public sealed class WorkLogDbContext(DbContextOptions<WorkLogDbContext> options)
     public DbSet<Project> Projects => Set<Project>();
 
     public DbSet<WorkLogEntry> WorkLogEntries => Set<WorkLogEntry>();
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

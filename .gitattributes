@@ -1,0 +1,13 @@
+# 改行コードの正規化をリポジトリ側で固定する。
+# これがないと core.autocrlf の設定が異なる環境で、チェックアウト時の
+# 改行コードが人ごとにズレます。
+* text=auto
+
+# バイナリは正規化しない
+*.png binary
+*.ico binary
+
+# sh で実行するファイルは LF が必須。
+# CRLF だと "#!/bin/sh\r: bad interpreter" でフックが起動しません。
+.githooks/* text eol=lf
+*.sh text eol=lf

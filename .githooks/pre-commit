@@ -1,0 +1,31 @@
+#!/bin/sh
+# pre-commit: リンターとテストが失敗したコミットを中断する。
+#
+# 有効化:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-git-hooks.ps1
+#
+# 手動実行・詳細:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
+#
+# 一時回避（非推奨）:
+#   git commit --no-verify
+#   WORKLOG_SKIP_CHECKS=1 git commit
+
+if [ "$WORKLOG_SKIP_CHECKS" = "1" ]; then
+	echo "pre-commit: WORKLOG_SKIP_CHECKS=1 のためチェックをスキップします" >&2
+	exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/check.ps1"
+status=$?
+
+if [ $status -ne 0 ]; then
+	echo "" >&2
+	echo "pre-commit: チェックが失敗したためコミットを中断しました。" >&2
+	echo "  どのチェックに落ちたかは上のログに出ています。" >&2
+	echo "  自動整形だけ適用するなら: scripts/check.ps1 -Fix" >&2
+fi
+
+exit $status
