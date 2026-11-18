@@ -40,8 +40,14 @@ jobs:
 
       - name: Restore dependencies
         run: |
+          dotnet restore WorkLog.Api/WorkLog.Api.csproj
           dotnet restore tests/WorkLog.Domain.Tests/
           dotnet restore tests/WorkLog.Infrastructure.Tests/
+
+      # テストプロジェクトは WorkLog.Api を参照しないため、明示的にビルドして
+      # API 層のコンパイル破綻を CI で検出する
+      - name: Build API
+        run: dotnet build WorkLog.Api/WorkLog.Api.csproj --no-restore -c Release
 
       - name: Run Domain tests
         run: dotnet test tests/WorkLog.Domain.Tests/ --no-restore
