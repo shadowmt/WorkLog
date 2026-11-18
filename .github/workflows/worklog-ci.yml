@@ -1,0 +1,50 @@
+
+name: WorkLog CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: worklog_test
+          POSTGRES_USER: worklog_user
+          POSTGRES_PASSWORD: worklog_test_password
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U worklog_user -d worklog_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      WORKLOG_TEST_CONNECTION_STRING: Host=localhost;Port=5435;Database=worklog_test;Username=worklog_user;Password=worklog_test_password
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore tests/WorkLog.Domain.Tests/
+          dotnet restore tests/WorkLog.Infrastructure.Tests/
+
+      - name: Run Domain tests
+        run: dotnet test tests/WorkLog.Domain.Tests/ --no-restore
+
+      - name: Run Infrastructure tests
+        run: dotnet test tests/WorkLog.Infrastructure.Tests/ --no-restore
