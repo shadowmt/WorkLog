@@ -1,6 +1,4 @@
-﻿
-using Microsoft.EntityFrameworkCore;
-using Npgsql;
+﻿using Npgsql;
 
 namespace WorkLog.Infrastructure.Tests;
 
@@ -20,7 +18,11 @@ public class DatabaseConnectionTests(TestDatabaseFixture fixture)
         // Assert
         Assert.True(canConnect);
     }
+}
 
+public class TestDatabaseGuardTests(TestDatabaseFixture fixture)
+    : IClassFixture<TestDatabaseFixture>
+{
     [Fact]
     public void Guard_ShouldRejectNonLoopbackHost()
     {
