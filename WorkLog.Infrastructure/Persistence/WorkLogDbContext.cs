@@ -30,6 +30,10 @@ public sealed class WorkLogDbContext(DbContextOptions<WorkLogDbContext> options)
         entity.HasKey(x => x.Id);
 
         // Name は最大 100 文字まで許容し、必須項目とする
+        entity.Property(x => x.Name)
+            .HasMaxLength(100)
+            .IsRequired();
+
         entity.Property(x => x.NormalizedName)
             .HasMaxLength(100)
             .IsRequired();
