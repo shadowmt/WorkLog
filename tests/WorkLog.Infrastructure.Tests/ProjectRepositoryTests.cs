@@ -15,7 +15,7 @@ public class ProjectRepositoryTests(TestDatabaseFixture fixture)
     }
 
     [Fact]
-    public async Task AddAsync_ShouldPersistProject()
+    public async Task Add_ShouldPersistProject()
     {
         var projectName = $"テストプロジェクト_{Guid.NewGuid():N}";
 
@@ -45,7 +45,7 @@ public class ProjectRepositoryTests(TestDatabaseFixture fixture)
     }
 
     [Fact]
-    public async Task UpdateAsync_ShouldPersistUpdatedProject()
+    public async Task Update_ShouldPersistUpdatedProject()
     {
         // Arrange
         var project = new Project(
@@ -83,7 +83,7 @@ public class ProjectRepositoryTests(TestDatabaseFixture fixture)
     }
 
     [Fact]
-    public async Task DeactivateAsync_ShouldPersistInactiveProject()
+    public async Task Deactivate_ShouldPersistInactiveProject()
     {
         // Arrange
         var project = new Project(
