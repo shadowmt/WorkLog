@@ -5,6 +5,8 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/tests/">
+    <Project Path="tests/WorkLog.Api.Tests/WorkLog.Api.Tests.csproj" />
+    <Project Path="tests/WorkLog.Application.Tests/WorkLog.Application.Tests.csproj" />
     <Project Path="tests/WorkLog.Domain.Tests/WorkLog.Domain.Tests.csproj" />
     <Project Path="tests/WorkLog.Infrastructure.Tests/WorkLog.Infrastructure.Tests.csproj" />
   </Folder>
@@ -12,6 +14,7 @@
     <File Path="compose.yaml" />
   </Folder>
   <Project Path="WorkLog.Api/WorkLog.Api.csproj" />
+  <Project Path="WorkLog.Application/WorkLog.Application.csproj" />
   <Project Path="WorkLog.Client/WorkLog.Client.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />

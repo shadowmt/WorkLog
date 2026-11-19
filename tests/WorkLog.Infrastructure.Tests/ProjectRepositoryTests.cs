@@ -1,5 +1,6 @@
-﻿using WorkLog.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using WorkLog.Domain.Entities;
+using WorkLog.Infrastructure.Repositories;
 
 namespace WorkLog.Infrastructure.Tests;
 
@@ -177,5 +178,44 @@ public class ProjectRepositoryTests(TestDatabaseFixture fixture)
             await Assert.ThrowsAsync<DbUpdateException>(
                 () => dbContext.SaveChangesAsync());
         }
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnProject_WhenProjectExists()
+    {
+        // Arrange
+        var project = new Project(
+            $"リポジトリテスト_{Guid.NewGuid():N}",
+            "GetByIdAsync検索テスト");
+
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            dbContext.Projects.Add(project);
+            await dbContext.SaveChangesAsync();
+        }
+
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            // Act
+            var repository = new ProjectRepository(dbContext);
+            var result = await repository.GetByIdAsync(project.Id);
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(project.Id, result.Id);
+            Assert.Equal(project.Name, result.Name);
+        }
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenProjectDoesNotExist()
+    {
+        await using var dbContext = fixture.CreateDbContext();
+        var repository = new ProjectRepository(dbContext);
+
+        // Act
+        var result = await repository.GetByIdAsync(Guid.NewGuid());
+
+        // Assert
+        Assert.Null(result);
     }
 }

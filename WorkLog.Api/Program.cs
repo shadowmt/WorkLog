@@ -1,3 +1,4 @@
+using WorkLog.Application;
 using WorkLog.Api.Endpoints;
 using WorkLog.Infrastructure;
 
@@ -13,6 +14,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "The 'WorkLog' connection string is missing. Configure ConnectionStrings:WorkLog before starting the API.");
 }
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
 
 var app = builder.Build();

@@ -11,4 +11,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <ProjectReference Include="..\WorkLog.Infrastructure\WorkLog.Infrastructure.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorkLog.Application\WorkLog.Application.csproj" />
+  </ItemGroup>
 </Project>

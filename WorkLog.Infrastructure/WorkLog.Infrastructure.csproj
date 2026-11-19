@@ -15,5 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WorkLog.Domain\WorkLog.Domain.csproj" />
+    <ProjectReference Include="..\WorkLog.Application\WorkLog.Application.csproj" />
   </ItemGroup>
 </Project>
