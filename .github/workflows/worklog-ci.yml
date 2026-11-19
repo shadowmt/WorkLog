@@ -56,6 +56,8 @@ jobs:
       - name: Restore dependencies
         run: |
           dotnet restore WorkLog.Api/WorkLog.Api.csproj
+          dotnet restore tests/WorkLog.Api.Tests/
+          dotnet restore tests/WorkLog.Application.Tests/
           dotnet restore tests/WorkLog.Domain.Tests/
           dotnet restore tests/WorkLog.Infrastructure.Tests/
 
@@ -65,8 +67,11 @@ jobs:
       - name: Lint (dotnet format)
         run: |
           dotnet format WorkLog.Api/WorkLog.Api.csproj --verify-no-changes
+          dotnet format WorkLog.Application/WorkLog.Application.csproj --verify-no-changes
           dotnet format WorkLog.Domain/WorkLog.Domain.csproj --verify-no-changes
           dotnet format WorkLog.Infrastructure/WorkLog.Infrastructure.csproj --verify-no-changes
+          dotnet format tests/WorkLog.Api.Tests/ --verify-no-changes
+          dotnet format tests/WorkLog.Application.Tests/ --verify-no-changes
           dotnet format tests/WorkLog.Domain.Tests/ --verify-no-changes
           dotnet format tests/WorkLog.Infrastructure.Tests/ --verify-no-changes
 
@@ -77,6 +82,20 @@ jobs:
 
       # coverlet.collector が参照されているだけでは動作しないため、
       # --collect で明示的に XPlat Code Coverage を有効にする。
+      - name: Run API tests
+        run: >-
+          dotnet test tests/WorkLog.Api.Tests/ --no-restore
+          --results-directory TestResults
+          --logger "trx;LogFileName=api.trx"
+          --collect:"XPlat Code Coverage"
+
+      - name: Run Application tests
+        run: >-
+          dotnet test tests/WorkLog.Application.Tests/ --no-restore
+          --results-directory TestResults
+          --logger "trx;LogFileName=application.trx"
+          --collect:"XPlat Code Coverage"
+
       - name: Run Domain tests
         run: >-
           dotnet test tests/WorkLog.Domain.Tests/ --no-restore

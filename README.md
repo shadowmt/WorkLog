@@ -231,7 +231,7 @@ Git のフックは `.git` 内に置くためリポジトリに含められま�
 | --- | --- | --- | --- |
 | 1 | リンター | `dotnet format <project> --verify-no-changes` | 失敗 |
 | 2 | ビルド | `dotnet build <project> -c Release` | 失敗 |
-| 3 | 単体テスト | `dotnet test tests/WorkLog.Domain.Tests -c Release` | 失敗 |
+| 3 | 単体テスト | `dotnet test tests/WorkLog.Api.Tests / WorkLog.Application.Tests / WorkLog.Domain.Tests -c Release` | 失敗 |
 | 4 | 統合テスト | `dotnet test tests/WorkLog.Infrastructure.Tests -c Release` | SKIP |
 
 対象プロジェクトは CI と同じです。`WorkLog.Client` は MSIX / Windows SDK のビルドが必要なため既定では対象外で、`-FullSolution` を指定したときだけ含まれます。
@@ -292,16 +292,20 @@ CI は別のワークフローで走るため、`main` に積む前に手元で�
 - Swagger / OpenAPI UI は Development 環境でのみ有効化しています。本番で構造を公開しないでください。
 - <!-- TODO: 脆弱性報告の手順（SECURITY.md）を決める -->
 
-## テスト（未整備）
+## テスト
 
-<!-- TODO: テストプロジェクトを追加する。EF Core のテストでは InMemory プロバイダは本番用途・統合テストの代替として推奨されていない点に注意。
-	 参考: https://learn.microsoft.com/ef/core/testing/ -->
+| プロジェクト | 対象 | 実行 |
+| --- | --- | --- |
+| `WorkLog.Domain.Tests` | `Project` / `WorkLogEntry` の不変条件と状態遷移 | pre-commit / CI |
+| `WorkLog.Application.Tests` | `CreateWorkLogEntryUseCase`（Repository を Moq で偽装） | pre-commit / CI |
+| `WorkLog.Api.Tests` | DI コンテナの登録検証 | pre-commit / CI |
+| `WorkLog.Infrastructure.Tests` | `DbContext` と Repository による永続化（テスト用 PostgreSQL が必要） | pre-commit（DB 起動時）/ CI |
 
-| プロジェクト | 計画 |
-| --- | --- |
-| `WorkLog.Tests` | ViewModel / 変換ロジックの単体テスト |
-| `WorkLog.Api.Tests` | エンドポイントの統合テスト |
-| `WorkLog.Infrastructure.Tests` | `DbContext` のクエリテスト |
+Application 層のテストは Infrastructure に依存させず、`IProjectRepository` と `IWorkLogEntryRepository` を偽装して検証します。
+Infrastructure 層のテストは実 DB を使い、EF Core のテストで InMemory プロバイダを本番用途・統合テストの代替として使用しません。
+参考: <https://learn.microsoft.com/ef/core/testing/>
+
+<!-- TODO: エンドポイントの統合テスト（WebApplicationFactory）と WorkLog.Client の ViewModel テストを追加する。 -->
 
 ## ライセンス
 

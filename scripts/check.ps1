@@ -49,13 +49,18 @@ Set-Location $RepoRoot
 # CI と同じ対象プロジェクト
 $LintProjects = @(
 	'WorkLog.Api/WorkLog.Api.csproj',
+	'WorkLog.Application/WorkLog.Application.csproj',
 	'WorkLog.Domain/WorkLog.Domain.csproj',
 	'WorkLog.Infrastructure/WorkLog.Infrastructure.csproj',
+	'tests/WorkLog.Api.Tests/WorkLog.Api.Tests.csproj',
+	'tests/WorkLog.Application.Tests/WorkLog.Application.Tests.csproj',
 	'tests/WorkLog.Domain.Tests/WorkLog.Domain.Tests.csproj',
 	'tests/WorkLog.Infrastructure.Tests/WorkLog.Infrastructure.Tests.csproj'
 )
 
 $UnitTestProjects = @(
+	'tests/WorkLog.Api.Tests/WorkLog.Api.Tests.csproj',
+	'tests/WorkLog.Application.Tests/WorkLog.Application.Tests.csproj',
 	'tests/WorkLog.Domain.Tests/WorkLog.Domain.Tests.csproj'
 )
 
