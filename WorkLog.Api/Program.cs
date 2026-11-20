@@ -7,17 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 
-var connectionString = builder.Configuration.GetConnectionString("WorkLog");
-if (string.IsNullOrWhiteSpace(connectionString))
-{
-    throw new InvalidOperationException(
-        "The 'WorkLog' connection string is missing. Configure ConnectionStrings:WorkLog before starting the API.");
-}
-
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+// 接続文字列は DbContext の解決時に読み出すため、設定不備はここで起動時に検出する。
+app.Configuration.GetRequiredWorkLogConnectionString();
 
 if (app.Environment.IsDevelopment())
 {
@@ -25,6 +21,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapProjectEndpoints();
+app.MapWorkLogEntryEndpoints();
 
 app.UseHttpsRedirection();
 

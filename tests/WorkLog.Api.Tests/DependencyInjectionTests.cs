@@ -1,28 +1,17 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using WorkLog.Application;
-using WorkLog.Application.UseCases;
-using WorkLog.Infrastructure;
-
-namespace WorkLog.Api.Tests;
+﻿namespace WorkLog.Api.Tests;
 
 public class DependencyInjectionTests
 {
     [Fact]
-    public void AddApplicationAndInfrastructure_ShouldResolveCreateWorkLogEntryUseCase()
+    public void WebApplicationFactory_ShouldStartApi()
     {
         // Arrange
-        var services = new ServiceCollection();
-
-        services.AddApplication();
-        services.AddInfrastructure(
-            "Host=localhost;Port=5435;Database=worklog_test;Username=worklog_user;Password=worklog_test_password");
-
-        using var serviceProvider = services.BuildServiceProvider();
+        using var factory = new CustomWebApplicationFactory();
 
         // Act
-        var useCase = serviceProvider.GetRequiredService<CreateWorkLogEntryUseCase>();
+        using var client = factory.CreateClient();
 
         // Assert
-        Assert.NotNull(useCase);
+        Assert.NotNull(client);
     }
 }

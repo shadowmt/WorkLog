@@ -7,7 +7,7 @@ public sealed class CreateWorkLogEntryUseCase(
     IProjectRepository projectRepository,
     IWorkLogEntryRepository workLogEntryRepository)
 {
-    public async Task ExecuteAsync(
+    public async Task<WorkLogEntry> ExecuteAsync(
         DateOnly workDate,
         Guid projectId,
         string description,
@@ -39,5 +39,7 @@ public sealed class CreateWorkLogEntryUseCase(
         await workLogEntryRepository.AddAsync(
             entry,
             cancellationToken);
+
+        return entry;
     }
 }
