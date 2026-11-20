@@ -231,8 +231,8 @@ Git のフックは `.git` 内に置くためリポジトリに含められま�
 | --- | --- | --- | --- |
 | 1 | リンター | `dotnet format <project> --verify-no-changes` | 失敗 |
 | 2 | ビルド | `dotnet build <project> -c Release` | 失敗 |
-| 3 | 単体テスト | `dotnet test tests/WorkLog.Api.Tests / WorkLog.Application.Tests / WorkLog.Domain.Tests -c Release` | 失敗 |
-| 4 | 統合テスト | `dotnet test tests/WorkLog.Infrastructure.Tests -c Release` | SKIP |
+| 3 | 単体テスト | `dotnet test tests/WorkLog.Application.Tests / WorkLog.Domain.Tests -c Release` | 失敗 |
+| 4 | 統合テスト | `dotnet test tests/WorkLog.Api.Tests / WorkLog.Infrastructure.Tests -c Release` | SKIP |
 
 対象プロジェクトは CI と同じです。`WorkLog.Client` は MSIX / Windows SDK のビルドが必要なため既定では対象外で、`-FullSolution` を指定したときだけ含まれます。
 
@@ -259,7 +259,9 @@ EF Core のマイグレーション（`Persistence/Migrations/`）は再生成�
 
 ### 統合テストの接続情報
 
-`TestDatabaseFixture` は `WORKLOG_TEST_CONNECTION_STRING` を参照します。未設定の場合は `.env`（`WORKLOG_TEST_PASSWORD` が必要）から組み立て、`127.0.0.1:<WORKLOG_TEST_PORT>` へ TCP 疎通を確認します。DB が起動していなければ SKIP として扱います（`-Strict` なら失敗）。
+`TestDatabaseFixture` と `CustomWebApplicationFactory` は `WORKLOG_TEST_CONNECTION_STRING` を参照します。未設定の場合は `.env`（`WORKLOG_TEST_PASSWORD` が必要）から組み立て、`127.0.0.1:<WORKLOG_TEST_PORT>` へ TCP 疎通を確認します。DB が起動していなければ SKIP として扱います（`-Strict` なら失敗）。
+
+`CustomWebApplicationFactory` はホスト生成時に、自前の接続文字列でマイグレーションを適用します。CI のテスト DB は毎回まっさらなため、テストプロジェクトの実行順にスキーマ生成を依存させないためです。
 
 ```powershell
 docker compose up -d --wait postgres-test
@@ -298,14 +300,14 @@ CI は別のワークフローで走るため、`main` に積む前に手元で�
 | --- | --- | --- |
 | `WorkLog.Domain.Tests` | `Project` / `WorkLogEntry` の不変条件と状態遷移 | pre-commit / CI |
 | `WorkLog.Application.Tests` | `CreateWorkLogEntryUseCase`（Repository を Moq で偽装） | pre-commit / CI |
-| `WorkLog.Api.Tests` | DI コンテナの登録検証 | pre-commit / CI |
+| `WorkLog.Api.Tests` | `POST /api/work-log-entries` の統合テスト（`WebApplicationFactory`）と API の起動検証（テスト用 PostgreSQL が必要） | pre-commit（DB 起動時）/ CI |
 | `WorkLog.Infrastructure.Tests` | `DbContext` と Repository による永続化（テスト用 PostgreSQL が必要） | pre-commit（DB 起動時）/ CI |
 
 Application 層のテストは Infrastructure に依存させず、`IProjectRepository` と `IWorkLogEntryRepository` を偽装して検証します。
 Infrastructure 層のテストは実 DB を使い、EF Core のテストで InMemory プロバイダを本番用途・統合テストの代替として使用しません。
 参考: <https://learn.microsoft.com/ef/core/testing/>
 
-<!-- TODO: エンドポイントの統合テスト（WebApplicationFactory）と WorkLog.Client の ViewModel テストを追加する。 -->
+<!-- TODO: WorkLog.Client の ViewModel テストを追加する。 -->
 
 ## ライセンス
 

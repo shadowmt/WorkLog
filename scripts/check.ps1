@@ -59,13 +59,13 @@ $LintProjects = @(
 )
 
 $UnitTestProjects = @(
-	'tests/WorkLog.Api.Tests/WorkLog.Api.Tests.csproj',
 	'tests/WorkLog.Application.Tests/WorkLog.Application.Tests.csproj',
 	'tests/WorkLog.Domain.Tests/WorkLog.Domain.Tests.csproj'
 )
 
 # テスト用 PostgreSQL が必要なプロジェクト
 $IntegrationTestProjects = @(
+	'tests/WorkLog.Api.Tests/WorkLog.Api.Tests.csproj',
 	'tests/WorkLog.Infrastructure.Tests/WorkLog.Infrastructure.Tests.csproj'
 )
 
