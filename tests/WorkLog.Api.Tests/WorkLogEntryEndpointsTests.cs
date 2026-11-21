@@ -168,4 +168,747 @@ public class WorkLogEntryEndpointsTests(
             HttpStatusCode.BadRequest,
             response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnPagedResults_WhenRequestIsValid()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        // Projectを作成
+        var projectRequest = new CreateProjectRequest(
+            $"GET API Test Project {Guid.NewGuid():N}",
+            "GET API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        // 作業実績を登録
+        var workLogRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "GET API integration test work",
+            90);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            workLogRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        // Act
+        var response = await client.GetAsync(
+            $"/api/work-log-entries" +
+            $"?from=2026-11-20" +
+            $"&to=2026-11-20" +
+            $"&projectId={project.Id}" +
+            $"&page=1" +
+            $"&pageSize=50");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+
+        Assert.Equal(1, result.Page);
+        Assert.Equal(50, result.PageSize);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.TotalPages);
+
+        var item = Assert.Single(result.Items);
+
+        Assert.Equal(workLogRequest.WorkDate, item.WorkDate);
+        Assert.Equal(project.Id, item.ProjectId);
+        Assert.Equal(project.Name, item.ProjectName);
+        Assert.True(item.ProjectIsActive);
+        Assert.Equal(workLogRequest.Description, item.Description);
+        Assert.Equal(workLogRequest.DurationMinutes, item.DurationMinutes);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnCurrentMonthEntries_WhenDatesAreOmitted()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Current Month Test Project {Guid.NewGuid():N}",
+            "Current month integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var jstNow = factory.FakeTimeProvider.GetUtcNow().ToOffset(
+            TimeSpan.FromHours(9));
+
+        var today = DateOnly.FromDateTime(jstNow.DateTime);
+
+        var currentMonthStart = new DateOnly(
+            today.Year,
+            today.Month,
+            1);
+
+        var previousMonthLastDay = currentMonthStart.AddDays(-1);
+
+        var previousMonthEntry = new CreateWorkLogEntryRequest(
+            previousMonthLastDay,
+            project.Id,
+            "Previous month work",
+            60);
+
+        var currentMonthEntry = new CreateWorkLogEntryRequest(
+            currentMonthStart,
+            project.Id,
+            "Current month work",
+            90);
+
+        foreach (var request in new[]
+        {
+        previousMonthEntry,
+        currentMonthEntry
+    })
+        {
+            var createResponse = await client.PostAsJsonAsync(
+                "/api/work-log-entries",
+                request);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.TotalPages);
+
+        var item = Assert.Single(result.Items);
+
+        Assert.Equal(currentMonthStart, item.WorkDate);
+        Assert.Equal("Current month work", item.Description);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldFilterByFromDateOnly()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"From Date Test Project {Guid.NewGuid():N}",
+            "From date integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var startDate = today.AddDays(-10);
+
+        var dates = new[]
+        {
+        startDate.AddDays(-1),
+        startDate,
+        startDate.AddDays(1)
+    };
+
+        foreach (var date in dates)
+        {
+            var request = new CreateWorkLogEntryRequest(
+                date,
+                project.Id,
+                $"Work on {date}",
+                60);
+
+            var createResponse = await client.PostAsJsonAsync(
+                "/api/work-log-entries",
+                request);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?from={startDate:yyyy-MM-dd}" +
+            $"&projectId={project.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+
+        Assert.Equal(
+            new[] { startDate.AddDays(1), startDate },
+            result.Items.Select(x => x.WorkDate).ToArray());
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldFilterByToDateOnly()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"To Date Test Project {Guid.NewGuid():N}",
+            "To date integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var endDate = today.AddDays(-10);
+
+        var dates = new[]
+        {
+        endDate.AddDays(-1),
+        endDate,
+        endDate.AddDays(1)
+    };
+
+        foreach (var date in dates)
+        {
+            var request = new CreateWorkLogEntryRequest(
+                date,
+                project.Id,
+                $"Work on {date}",
+                60);
+
+            var createResponse = await client.PostAsJsonAsync(
+                "/api/work-log-entries",
+                request);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?to={endDate:yyyy-MM-dd}" +
+            $"&projectId={project.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+
+        Assert.Equal(
+            new[] { endDate, endDate.AddDays(-1) },
+            result.Items.Select(x => x.WorkDate).ToArray());
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnBadRequest_WhenFromIsAfterTo()
+    {
+        using var client = factory.CreateClient();
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var from = today;
+        var to = today.AddDays(-1);
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?from={from:yyyy-MM-dd}" +
+            $"&to={to:yyyy-MM-dd}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnBadRequest_WhenPageIsLessThanOne()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/work-log-entries?page=0");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnBadRequest_WhenPageSizeIsZero()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/work-log-entries?pageSize=0");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnBadRequest_WhenPageSizeExceedsMaximum()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/work-log-entries?pageSize=101");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnNotFound_WhenProjectDoesNotExist()
+    {
+        using var client = factory.CreateClient();
+
+        var nonExistentProjectId = Guid.NewGuid();
+
+        // 指定したIDのProjectが存在しないことを確認する。
+        var projectResponse = await client.GetAsync(
+            $"/api/projects/{nonExistentProjectId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, projectResponse.StatusCode);
+
+        // 存在しないProjectを指定した検索も404になることを確認する。
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={nonExistentProjectId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnEmptyResult_WhenProjectHasNoEntries()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Empty WorkLog Project {Guid.NewGuid():N}",
+            "Project without work log entries");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+        Assert.Equal(0, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnRequestedPage()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Pagination Test Project {Guid.NewGuid():N}",
+            "Pagination integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var dates = new[]
+        {
+        today.AddDays(-2),
+        today.AddDays(-1),
+        today
+    };
+
+        foreach (var date in dates)
+        {
+            var request = new CreateWorkLogEntryRequest(
+                date,
+                project.Id,
+                $"Work on {date}",
+                60);
+
+            var createResponse = await client.PostAsJsonAsync(
+                "/api/work-log-entries",
+                request);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        // 1ページ目：新しい日付から2件
+        var firstPageResponse = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}&page=1&pageSize=2");
+
+        Assert.Equal(HttpStatusCode.OK, firstPageResponse.StatusCode);
+
+        var firstPage = await firstPageResponse.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(firstPage);
+        Assert.Equal(2, firstPage.Items.Count);
+        Assert.Equal(1, firstPage.Page);
+        Assert.Equal(2, firstPage.PageSize);
+        Assert.Equal(3, firstPage.TotalCount);
+        Assert.Equal(2, firstPage.TotalPages);
+
+        Assert.Equal(
+            new[] { today, today.AddDays(-1) },
+            firstPage.Items.Select(x => x.WorkDate).ToArray());
+
+        // 2ページ目：残り1件
+        var secondPageResponse = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}&page=2&pageSize=2");
+
+        Assert.Equal(HttpStatusCode.OK, secondPageResponse.StatusCode);
+
+        var secondPage = await secondPageResponse.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(secondPage);
+        Assert.Single(secondPage.Items);
+        Assert.Equal(2, secondPage.Page);
+        Assert.Equal(2, secondPage.PageSize);
+        Assert.Equal(3, secondPage.TotalCount);
+        Assert.Equal(2, secondPage.TotalPages);
+
+        Assert.Equal(today.AddDays(-2), secondPage.Items[0].WorkDate);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnEmptyItems_WhenPageExceedsTotalPages()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Beyond Page Test Project {Guid.NewGuid():N}",
+            "Page beyond total pages integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var request = new CreateWorkLogEntryRequest(
+            today,
+            project.Id,
+            "Single work log entry",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            request);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}&page=2&pageSize=1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Empty(result.Items);
+        Assert.Equal(2, result.Page);
+        Assert.Equal(1, result.PageSize);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnProjectInformation()
+    {
+        using var client = factory.CreateClient();
+
+        var projectName = $"Project Information Test {Guid.NewGuid():N}";
+
+        var projectRequest = new CreateProjectRequest(
+            projectName,
+            "Project information integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var workLogRequest = new CreateWorkLogEntryRequest(
+            today,
+            project.Id,
+            "Project information test entry",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            workLogRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+
+        var item = Assert.Single(result.Items);
+
+        Assert.Equal(project.Id, item.ProjectId);
+        Assert.Equal(projectName, item.ProjectName);
+        Assert.True(item.ProjectIsActive);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldReturnStableOrdering()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Stable Ordering Test {Guid.NewGuid():N}",
+            "Stable ordering integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var dates = new[]
+        {
+            today.AddDays(-2),
+            today,
+            today.AddDays(-1)
+        };
+
+        foreach (var date in dates)
+        {
+            var request = new CreateWorkLogEntryRequest(
+                date,
+                project.Id,
+                $"Work on {date}",
+                60);
+
+            var createResponse = await client.PostAsJsonAsync(
+                "/api/work-log-entries",
+                request);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        var url = $"/api/work-log-entries?projectId={project.Id}";
+
+        var firstResponse = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+        var firstResult = await firstResponse.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(firstResult);
+
+        var secondResponse = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+
+        var secondResult = await secondResponse.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(secondResult);
+
+        Assert.Equal(
+            new[]
+            {
+                today,
+                today.AddDays(-1),
+                today.AddDays(-2)
+            },
+            firstResult.Items.Select(x => x.WorkDate).ToArray());
+
+        Assert.Equal(
+            firstResult.Items.Select(x => x.Id),
+            secondResult.Items.Select(x => x.Id));
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldUseDefaultPaginationValues()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Default Pagination Test {Guid.NewGuid():N}",
+            "Default pagination integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var today = DateOnly.FromDateTime(
+            factory.FakeTimeProvider.GetUtcNow()
+                .ToOffset(TimeSpan.FromHours(9))
+                .DateTime);
+
+        var request = new CreateWorkLogEntryRequest(
+            today,
+            project.Id,
+            "Default pagination test entry",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            request);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(50, result.PageSize);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task GetWorkLogEntries_ShouldAcceptMaximumPageSize()
+    {
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"Maximum Page Size Test {Guid.NewGuid():N}",
+            "Maximum page size integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var response = await client.GetAsync(
+            $"/api/work-log-entries?projectId={project.Id}&pageSize=100");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedWorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(100, result.PageSize);
+        Assert.Equal(1, result.Page);
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+        Assert.Equal(0, result.TotalPages);
+    }
 }

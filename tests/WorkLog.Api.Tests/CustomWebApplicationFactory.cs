@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Time.Testing;
 using WorkLog.Infrastructure.Persistence;
 
 namespace WorkLog.Api.Tests;
@@ -11,6 +13,17 @@ namespace WorkLog.Api.Tests;
 public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private const string ConnectionStringEnvVar = "WORKLOG_TEST_CONNECTION_STRING";
+
+    /// <summary>
+    /// テスト用の仮想日時。
+    /// 2026年11月21日 18:00 JST に固定する。
+    /// </summary>
+    public FakeTimeProvider FakeTimeProvider { get; } =
+        new FakeTimeProvider(
+            new DateTimeOffset(
+                2026, 11, 21,
+                9, 0, 0,
+                TimeSpan.Zero));
 
     /// <summary>
     /// テスト用 PostgreSQL（compose.yaml の postgres-test）へ向けた接続文字列。
@@ -46,6 +59,14 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 {
                     ["ConnectionStrings:WorkLog"] = TestConnectionString
                 });
+        });
+
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<TimeProvider>();
+
+            services.AddSingleton<TimeProvider>(
+                FakeTimeProvider);
         });
     }
 
