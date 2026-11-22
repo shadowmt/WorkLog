@@ -1,7 +1,6 @@
-
 using Microsoft.EntityFrameworkCore;
 using WorkLog.Api.Contracts.Projects;
-using WorkLog.Domain.Entities;
+using WorkLog.Application.UseCases;
 using WorkLog.Infrastructure.Persistence;
 
 namespace WorkLog.Api.Endpoints;
@@ -30,43 +29,33 @@ public static class ProjectEndpoints
 
         app.MapPost("/api/projects", async (
             CreateProjectRequest request,
-            WorkLogDbContext dbContext,
-            TimeProvider timeProvider,
+            CreateProjectUseCase useCase,
             CancellationToken cancellationToken) =>
         {
-            var normalizedName = request.Name.Trim().ToUpperInvariant();
+            try
+            {
+                var project = await useCase.ExecuteAsync(
+                    request.Name,
+                    request.Description,
+                    cancellationToken);
 
-            var existingProject = await dbContext.Projects
-                .AnyAsync(x => x.NormalizedName == normalizedName, cancellationToken);
+                var response = new ProjectResponse(
+                    project.Id,
+                    project.Name,
+                    project.Description,
+                    project.IsActive);
 
-            if (existingProject)
+                return Results.Created(
+                    $"/api/projects/{project.Id}",
+                    response);
+            }
+            catch (InvalidOperationException)
             {
                 return Results.Conflict(new
                 {
                     message = "同じ名前のプロジェクトが既に存在します。"
                 });
             }
-
-            var now = timeProvider.GetUtcNow();
-
-            var project = new Project(
-                request.Name,
-                now,
-                request.Description);
-
-            dbContext.Projects.Add(project);
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            var response = new ProjectResponse(
-                project.Id,
-                project.Name,
-                project.Description,
-                project.IsActive);
-
-            return Results.Created(
-                $"/api/projects/{project.Id}",
-                response);
         });
 
         return app;

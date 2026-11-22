@@ -17,4 +17,25 @@ public sealed class ProjectRepository(
                 project => project.Id == id,
                 cancellationToken);
     }
+
+    public async Task AddAsync(
+        Project project,
+        CancellationToken cancellationToken = default)
+    {
+        await dbContext.Projects.AddAsync(
+            project,
+            cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task<bool> ExistsByNormalizedNameAsync(
+        string normalizedName,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.Projects
+            .AnyAsync(
+                project => project.NormalizedName == normalizedName,
+                cancellationToken);
+    }
 }
