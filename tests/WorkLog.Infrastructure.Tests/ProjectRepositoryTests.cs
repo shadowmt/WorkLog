@@ -1,5 +1,6 @@
 ﻿
 using Microsoft.EntityFrameworkCore;
+using WorkLog.Application.Exceptions;
 using WorkLog.Domain.Entities;
 using WorkLog.Infrastructure.Repositories;
 
@@ -183,17 +184,18 @@ public class ProjectRepositoryTests(TestDatabaseFixture fixture)
 
         await using (var dbContext = fixture.CreateDbContext())
         {
-            dbContext.Projects.Add(first);
-            await dbContext.SaveChangesAsync();
+            var repository = new ProjectRepository(dbContext);
+
+            await repository.AddAsync(first);
         }
 
         // Act & Assert
         await using (var dbContext = fixture.CreateDbContext())
         {
-            dbContext.Projects.Add(second);
+            var repository = new ProjectRepository(dbContext);
 
-            await Assert.ThrowsAsync<DbUpdateException>(
-                () => dbContext.SaveChangesAsync());
+            await Assert.ThrowsAsync<DuplicateProjectNameException>(
+                () => repository.AddAsync(second));
         }
     }
 

@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using WorkLog.Application.Abstractions;
+using WorkLog.Application.Exceptions;
 using WorkLog.Domain.Entities;
 using WorkLog.Infrastructure.Persistence;
 
@@ -26,7 +28,19 @@ public sealed class ProjectRepository(
             project,
             cancellationToken);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: "ux_projects_name_normalized"
+            })
+        {
+            throw new DuplicateProjectNameException();
+        }
     }
 
     public Task<bool> ExistsByNormalizedNameAsync(
