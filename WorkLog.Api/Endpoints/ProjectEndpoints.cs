@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WorkLog.Api.Contracts.Projects;
+using WorkLog.Application.Exceptions;
 using WorkLog.Application.UseCases;
 using WorkLog.Infrastructure.Persistence;
 
@@ -49,11 +50,11 @@ public static class ProjectEndpoints
                     $"/api/projects/{project.Id}",
                     response);
             }
-            catch (InvalidOperationException)
+            catch (DuplicateProjectNameException ex)
             {
                 return Results.Conflict(new
                 {
-                    message = "同じ名前のプロジェクトが既に存在します。"
+                    message = ex.Message
                 });
             }
         });

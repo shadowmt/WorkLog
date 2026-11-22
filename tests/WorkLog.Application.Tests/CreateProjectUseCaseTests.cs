@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Time.Testing;
 using Moq;
 using WorkLog.Application.Abstractions;
+using WorkLog.Application.Exceptions;
 using WorkLog.Application.UseCases;
 using WorkLog.Domain.Entities;
 
@@ -50,7 +51,7 @@ public class CreateProjectUseCaseTests
             new FakeTimeProvider(FixedNow));
 
     [Fact]
-    public async Task ExecuteAsync_ShouldThrowInvalidOperationException_WhenProjectNameAlreadyExists()
+    public async Task ExecuteAsync_ShouldThrowDuplicateProjectNameException_WhenProjectNameAlreadyExists()
     {
         // Arrange
         const string name = "Test Project";
@@ -67,7 +68,7 @@ public class CreateProjectUseCaseTests
         var act = () => useCase.ExecuteAsync(name, null);
 
         // Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(act);
+        await Assert.ThrowsAsync<DuplicateProjectNameException>(act);
 
         _projectRepository.Verify(
             x => x.AddAsync(

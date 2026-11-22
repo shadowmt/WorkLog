@@ -1,4 +1,5 @@
 ﻿using WorkLog.Application.Abstractions;
+using WorkLog.Application.Exceptions;
 using WorkLog.Domain.Entities;
 
 namespace WorkLog.Application.UseCases;
@@ -23,8 +24,7 @@ public sealed class CreateProjectUseCase(
 
         if (exists)
         {
-            throw new InvalidOperationException(
-                "同じ名前のプロジェクトが既に存在します。");
+            throw new DuplicateProjectNameException();
         }
 
         await projectRepository.AddAsync(
