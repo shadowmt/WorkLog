@@ -8,12 +8,15 @@ namespace WorkLog.Infrastructure.Tests;
 public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
     : IClassFixture<TestDatabaseFixture>
 {
+    private static readonly DateTimeOffset FixedNow = new(2026, 11, 22, 1, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public async Task AddAsync_ShouldPersistWorkLogEntry()
     {
         // Arrange
         var project = new Project(
             $"作業実績テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "作業実績の永続化テスト");
 
         var workDate = new DateOnly(2026, 11, 19);
@@ -33,7 +36,8 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
             workDate,
             project.Id,
             description,
-            durationMinutes);
+            durationMinutes,
+            FixedNow);
 
         workLogEntryId = entry.Id;
 
@@ -65,10 +69,12 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project1 = new Project(
             $"更新前プロジェクト_{Guid.NewGuid():N}",
+            FixedNow,
             "更新前");
 
         var project2 = new Project(
             $"更新後プロジェクト_{Guid.NewGuid():N}",
+            FixedNow,
             "更新後");
 
         var originalDate = new DateOnly(2026, 11, 18);
@@ -78,7 +84,8 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
             originalDate,
             project1.Id,
             "更新前の作業内容",
-            60);
+            60,
+            FixedNow);
 
         // ProjectとWorkLogEntryを登録
         await using (var dbContext = fixture.CreateDbContext())
@@ -98,7 +105,8 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
                 updatedDate,
                 project2.Id,
                 "更新後の作業内容",
-                120);
+                120,
+                FixedNow);
 
             await dbContext.SaveChangesAsync();
         }
@@ -124,13 +132,15 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"無効化関連テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "無効化後も作業実績を保持するテスト");
 
         var entry = new WorkLogEntry(
             new DateOnly(2026, 11, 19),
             project.Id,
             "既存の作業実績",
-            90);
+            90,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -145,7 +155,7 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
             var target = await dbContext.Projects
                 .SingleAsync(x => x.Id == project.Id);
 
-            target.Deactivate();
+            target.Deactivate(FixedNow);
 
             await dbContext.SaveChangesAsync();
         }
@@ -170,25 +180,29 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"ページングテスト_{Guid.NewGuid():N}",
+            FixedNow,
             "ページングのテスト");
 
         var entry1 = new WorkLogEntry(
             new DateOnly(2026, 11, 18),
             project.Id,
             "1件目の作業",
-            60);
+            60,
+            FixedNow);
 
         var entry2 = new WorkLogEntry(
             new DateOnly(2026, 11, 20),
             project.Id,
             "2件目の作業",
-            90);
+            90,
+            FixedNow);
 
         var entry3 = new WorkLogEntry(
             new DateOnly(2026, 11, 19),
             project.Id,
             "3件目の作業",
-            120);
+            120,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -242,37 +256,43 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"日付範囲テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "日付範囲の検索テスト");
 
         var entryBefore = new WorkLogEntry(
             new DateOnly(2026, 11, 9),
             project.Id,
             "開始日より前",
-            60);
+            60,
+            FixedNow);
 
         var entryFrom = new WorkLogEntry(
             new DateOnly(2026, 11, 10),
             project.Id,
             "開始日当日",
-            60);
+            60,
+            FixedNow);
 
         var entryMiddle = new WorkLogEntry(
             new DateOnly(2026, 11, 15),
             project.Id,
             "期間内",
-            60);
+            60,
+            FixedNow);
 
         var entryTo = new WorkLogEntry(
             new DateOnly(2026, 11, 20),
             project.Id,
             "終了日当日",
-            60);
+            60,
+            FixedNow);
 
         var entryAfter = new WorkLogEntry(
             new DateOnly(2026, 11, 21),
             project.Id,
             "終了日より後",
-            60);
+            60,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -321,25 +341,29 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"開始日検索テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "開始日のみの検索テスト");
 
         var entryBefore = new WorkLogEntry(
             new DateOnly(2026, 11, 9),
             project.Id,
             "開始日より前",
-            60);
+            60,
+            FixedNow);
 
         var entryFrom = new WorkLogEntry(
             new DateOnly(2026, 11, 10),
             project.Id,
             "開始日当日",
-            60);
+            60,
+            FixedNow);
 
         var entryAfter = new WorkLogEntry(
             new DateOnly(2026, 11, 15),
             project.Id,
             "開始日より後",
-            60);
+            60,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -381,25 +405,29 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"終了日検索テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "終了日のみの検索テスト");
 
         var entryBefore = new WorkLogEntry(
             new DateOnly(2026, 11, 9),
             project.Id,
             "終了日より前",
-            60);
+            60,
+            FixedNow);
 
         var entryTo = new WorkLogEntry(
             new DateOnly(2026, 11, 10),
             project.Id,
             "終了日当日",
-            60);
+            60,
+            FixedNow);
 
         var entryAfter = new WorkLogEntry(
             new DateOnly(2026, 11, 11),
             project.Id,
             "終了日より後",
-            60);
+            60,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -441,23 +469,27 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project1 = new Project(
             $"Project検索テスト1_{Guid.NewGuid():N}",
+            FixedNow,
             "対象Project");
 
         var project2 = new Project(
             $"Project検索テスト2_{Guid.NewGuid():N}",
+            FixedNow,
             "対象外Project");
 
         var entry1 = new WorkLogEntry(
             new DateOnly(2026, 11, 19),
             project1.Id,
             "対象Projectの作業",
-            60);
+            60,
+            FixedNow);
 
         var entry2 = new WorkLogEntry(
             new DateOnly(2026, 11, 20),
             project2.Id,
             "対象外Projectの作業",
-            90);
+            90,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -497,15 +529,17 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"無効Project検索テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "無効Projectの検索テスト");
 
         var entry = new WorkLogEntry(
             new DateOnly(2026, 11, 19),
             project.Id,
             "無効化前の作業実績",
-            90);
+            90,
+            FixedNow);
 
-        project.Deactivate();
+        project.Deactivate(FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {
@@ -545,6 +579,7 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"0件検索テスト_{Guid.NewGuid():N}",
+            FixedNow,
             "0件検索のテスト");
 
         await using (var dbContext = fixture.CreateDbContext())
@@ -583,25 +618,29 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         // Arrange
         var project = new Project(
             $"範囲外ページテスト_{Guid.NewGuid():N}",
+            FixedNow,
             "範囲外ページのテスト");
 
         var entry1 = new WorkLogEntry(
             new DateOnly(2026, 11, 18),
             project.Id,
             "1件目",
-            60);
+            60,
+            FixedNow);
 
         var entry2 = new WorkLogEntry(
             new DateOnly(2026, 11, 19),
             project.Id,
             "2件目",
-            60);
+            60,
+            FixedNow);
 
         var entry3 = new WorkLogEntry(
             new DateOnly(2026, 11, 20),
             project.Id,
             "3件目",
-            60);
+            60,
+            FixedNow);
 
         await using (var dbContext = fixture.CreateDbContext())
         {

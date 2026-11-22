@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using WorkLog.Api.Contracts.Projects;
 using WorkLog.Domain.Entities;
@@ -30,6 +31,7 @@ public static class ProjectEndpoints
         app.MapPost("/api/projects", async (
             CreateProjectRequest request,
             WorkLogDbContext dbContext,
+            TimeProvider timeProvider,
             CancellationToken cancellationToken) =>
         {
             var normalizedName = request.Name.Trim().ToUpperInvariant();
@@ -45,8 +47,11 @@ public static class ProjectEndpoints
                 });
             }
 
+            var now = timeProvider.GetUtcNow();
+
             var project = new Project(
                 request.Name,
+                now,
                 request.Description);
 
             dbContext.Projects.Add(project);

@@ -117,7 +117,7 @@ public class WorkLogEntryEndpointsTests(
 
             Assert.NotNull(targetProject);
 
-            targetProject.Deactivate();
+            targetProject.Deactivate(new DateTimeOffset(2026, 11, 22, 1, 0, 0, TimeSpan.Zero));
 
             await dbContext.SaveChangesAsync();
         }

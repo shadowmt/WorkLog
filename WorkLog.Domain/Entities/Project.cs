@@ -25,39 +25,70 @@ public sealed class Project
     {
     }
 
-    public Project(string name, string? description = null)
+    public Project(
+        string name,
+        DateTimeOffset now,
+        string? description = null)
     {
-        Id = Guid.NewGuid();
+        var normalizedName = NormalizeName(name);
+        var normalizedDescription = NormalizeDescription(description);
+        var createdAt = ToStoredUtc(now);
 
-        Name = NormalizeName(name);
-        NormalizedName = Name.ToUpperInvariant();
-        Description = NormalizeDescription(description);
+        Id = Guid.NewGuid();
+        Name = normalizedName;
+        NormalizedName = normalizedName.ToUpperInvariant();
+        Description = normalizedDescription;
 
         IsActive = true;
 
-        CreatedAt = DateTimeOffset.UtcNow;
+        CreatedAt = createdAt;
         UpdatedAt = CreatedAt;
     }
 
-    public void Update(string name, string? description)
+    public void Update(
+        string name,
+        string? description,
+        DateTimeOffset now)
     {
-        Name = NormalizeName(name);
-        NormalizedName = Name.ToUpperInvariant();
-        Description = NormalizeDescription(description);
+        var normalizedName = NormalizeName(name);
+        var normalizedDescription = NormalizeDescription(description);
+        var updatedAt = ToStoredUtc(now);
 
-        UpdatedAt = DateTimeOffset.UtcNow;
+        Name = normalizedName;
+        NormalizedName = normalizedName.ToUpperInvariant();
+        Description = normalizedDescription;
+        UpdatedAt = updatedAt;
     }
 
-    public void Deactivate()
+    public void Deactivate(DateTimeOffset now)
     {
+        var updatedAt = ToStoredUtc(now);
+
         IsActive = false;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = updatedAt;
     }
 
-    public void Activate()
+    public void Activate(DateTimeOffset now)
     {
+        var updatedAt = ToStoredUtc(now);
+
         IsActive = true;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = updatedAt;
+    }
+
+    /// <summary>
+    /// 保持する時刻は常に UTC に正規化する。
+    /// </summary>
+    private static DateTimeOffset ToStoredUtc(DateTimeOffset value)
+    {
+        if (value == default)
+        {
+            throw new ArgumentException(
+                "時刻を指定してください。",
+                nameof(value));
+        }
+
+        return value.ToUniversalTime();
     }
 
     private static string NormalizeName(string name)

@@ -1,12 +1,17 @@
-﻿using WorkLog.Application.UseCases;
+﻿
+using WorkLog.Application.UseCases;
 using Moq;
 using WorkLog.Application.Abstractions;
 using WorkLog.Domain.Entities;
+using Microsoft.Extensions.Time.Testing;
 
 namespace WorkLog.Application.Tests;
 
 public class CreateWorkLogEntryUseCaseTests
 {
+    private static readonly DateTimeOffset FixedNow =
+        new(2026, 11, 22, 1, 0, 0, TimeSpan.Zero);
+
     private readonly Mock<IProjectRepository> _projectRepository = new();
     private readonly Mock<IWorkLogEntryRepository> _workLogEntryRepository = new();
 
@@ -14,7 +19,7 @@ public class CreateWorkLogEntryUseCaseTests
     public async Task ExecuteAsync_ShouldRegisterEntry_WhenProjectIsActive()
     {
         // Arrange
-        var project = new Project("Test Project", null);
+        var project = new Project("Test Project", FixedNow);
         _projectRepository
             .Setup(x => x.GetByIdAsync(
                 project.Id, It.IsAny<CancellationToken>()))
@@ -40,7 +45,8 @@ public class CreateWorkLogEntryUseCaseTests
                     entry.ProjectId == project.Id &&
                     entry.WorkDate == workDate &&
                     entry.Description == description &&
-                    entry.DurationMinutes == durationMinutes),
+                    entry.DurationMinutes == durationMinutes &&
+                    entry.CreatedAt == FixedNow),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -49,8 +55,8 @@ public class CreateWorkLogEntryUseCaseTests
     public async Task ExecuteAsync_ShouldThrowInvalidOperationException_WhenProjectIsInactive()
     {
         // Arrange
-        var project = new Project("Inactive Project", null);
-        project.Deactivate();
+        var project = new Project("Inactive Project", FixedNow);
+        project.Deactivate(FixedNow.AddMinutes(1));
 
         _projectRepository
             .Setup(x => x.GetByIdAsync(
@@ -109,7 +115,8 @@ public class CreateWorkLogEntryUseCaseTests
     private CreateWorkLogEntryUseCase CreateUseCase()
         => new(
             _projectRepository.Object,
-            _workLogEntryRepository.Object);
+            _workLogEntryRepository.Object,
+            new FakeTimeProvider(FixedNow));
 
     [Fact]
     public async Task ExecuteAsync_ShouldPassCancellationTokenToRepositories()
@@ -118,7 +125,7 @@ public class CreateWorkLogEntryUseCaseTests
         using var cts = new CancellationTokenSource();
         var cancellationToken = cts.Token;
 
-        var project = new Project("Test Project", null);
+        var project = new Project("Test Project", FixedNow);
 
         _projectRepository
             .Setup(x => x.GetByIdAsync(
@@ -142,7 +149,8 @@ public class CreateWorkLogEntryUseCaseTests
 
         _workLogEntryRepository.Verify(
             x => x.AddAsync(
-                It.IsAny<WorkLogEntry>(),
+                It.Is<WorkLogEntry>(entry =>
+                    entry.CreatedAt == FixedNow),
                 cancellationToken),
             Times.Once);
     }

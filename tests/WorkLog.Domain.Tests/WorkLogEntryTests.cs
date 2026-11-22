@@ -9,6 +9,9 @@ public class WorkLogEntryTests
     private static readonly Guid ValidProjectId =
         Guid.Parse("11111111-1111-1111-1111-111111111111");
 
+    private static readonly DateTimeOffset FixedNow =
+        new(2026, 11, 22, 1, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void Constructor_ShouldCreateWorkLogEntry()
     {
@@ -17,7 +20,8 @@ public class WorkLogEntryTests
             ValidWorkDate,
             ValidProjectId,
             "  要件定義  ",
-            90);
+            90,
+            FixedNow);
 
         // Assert
         Assert.NotEqual(Guid.Empty, entry.Id);
@@ -25,8 +29,43 @@ public class WorkLogEntryTests
         Assert.Equal(ValidProjectId, entry.ProjectId);
         Assert.Equal("要件定義", entry.Description);
         Assert.Equal(90, entry.DurationMinutes);
-        Assert.Equal(entry.CreatedAt, entry.UpdatedAt);
+        Assert.Equal(FixedNow, entry.CreatedAt);
+        Assert.Equal(FixedNow, entry.UpdatedAt);
+    }
+
+    [Fact]
+    public void Constructor_ShouldNormalizeTimestampToUtc()
+    {
+        // Arrange
+        var jstNow = new DateTimeOffset(
+            2026, 11, 22, 10, 0, 0, TimeSpan.FromHours(9));
+
+        // Act
+        var entry = new WorkLogEntry(
+            ValidWorkDate,
+            ValidProjectId,
+            "要件定義",
+            60,
+            jstNow);
+
+        // Assert
+        Assert.Equal(FixedNow, entry.CreatedAt);
         Assert.Equal(TimeSpan.Zero, entry.CreatedAt.Offset);
+    }
+
+    [Fact]
+    public void Constructor_ShouldThrowWhenNowIsDefault()
+    {
+        // Act
+        var act = () => new WorkLogEntry(
+            ValidWorkDate,
+            ValidProjectId,
+            "要件定義",
+            60,
+            default);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
     }
 
     [Fact]
@@ -37,7 +76,8 @@ public class WorkLogEntryTests
             default,
             ValidProjectId,
             "要件定義",
-            60);
+            60,
+            FixedNow);
 
         // Assert
         Assert.Throws<ArgumentException>(act);
@@ -51,7 +91,8 @@ public class WorkLogEntryTests
             ValidWorkDate,
             Guid.Empty,
             "要件定義",
-            60);
+            60,
+            FixedNow);
 
         // Assert
         Assert.Throws<ArgumentException>(act);
@@ -68,7 +109,8 @@ public class WorkLogEntryTests
             ValidWorkDate,
             ValidProjectId,
             description,
-            60);
+            60,
+            FixedNow);
 
         // Assert
         Assert.Throws<ArgumentException>(act);
@@ -86,7 +128,8 @@ public class WorkLogEntryTests
             ValidWorkDate,
             ValidProjectId,
             "要件定義",
-            durationMinutes);
+            durationMinutes,
+            FixedNow);
 
         // Assert
         Assert.Throws<ArgumentOutOfRangeException>(act);
@@ -100,23 +143,28 @@ public class WorkLogEntryTests
             ValidWorkDate,
             ValidProjectId,
             "要件定義",
-            60);
+            60,
+            FixedNow);
 
         var newDate = new DateOnly(2026, 11, 17);
         var newProjectId = Guid.NewGuid();
+        var updatedAt = FixedNow.AddMinutes(5);
 
         // Act
         entry.Update(
             newDate,
             newProjectId,
             "  画面設計  ",
-            120);
+            120,
+            updatedAt);
 
         // Assert
         Assert.Equal(newDate, entry.WorkDate);
         Assert.Equal(newProjectId, entry.ProjectId);
         Assert.Equal("画面設計", entry.Description);
         Assert.Equal(120, entry.DurationMinutes);
+        Assert.Equal(FixedNow, entry.CreatedAt);
+        Assert.Equal(updatedAt, entry.UpdatedAt);
     }
 
     [Fact]
@@ -127,14 +175,16 @@ public class WorkLogEntryTests
             ValidWorkDate,
             ValidProjectId,
             "要件定義",
-            60);
+            60,
+            FixedNow);
 
         // Act
         var act = () => entry.Update(
             new DateOnly(2026, 11, 17),
             Guid.NewGuid(),
             "画面設計",
-            0);
+            0,
+            FixedNow.AddMinutes(5));
 
         // Assert
         Assert.Throws<ArgumentOutOfRangeException>(act);
@@ -143,5 +193,35 @@ public class WorkLogEntryTests
         Assert.Equal(ValidProjectId, entry.ProjectId);
         Assert.Equal("要件定義", entry.Description);
         Assert.Equal(60, entry.DurationMinutes);
+        Assert.Equal(FixedNow, entry.UpdatedAt);
+    }
+
+    [Fact]
+    public void Update_ShouldNotChangePropertiesWhenNowIsDefault()
+    {
+        // Arrange
+        var entry = new WorkLogEntry(
+            ValidWorkDate,
+            ValidProjectId,
+            "要件定義",
+            60,
+            FixedNow);
+
+        // Act
+        var act = () => entry.Update(
+            new DateOnly(2026, 11, 17),
+            Guid.NewGuid(),
+            "画面設計",
+            120,
+            default);
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
+
+        Assert.Equal(ValidWorkDate, entry.WorkDate);
+        Assert.Equal(ValidProjectId, entry.ProjectId);
+        Assert.Equal("要件定義", entry.Description);
+        Assert.Equal(60, entry.DurationMinutes);
+        Assert.Equal(FixedNow, entry.UpdatedAt);
     }
 }
