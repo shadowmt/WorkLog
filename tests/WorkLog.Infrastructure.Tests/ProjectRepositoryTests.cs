@@ -239,4 +239,61 @@ public class ProjectRepositoryTests(TestDatabaseFixture fixture)
         // Assert
         Assert.Null(result);
     }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnProjectsOrderedByName()
+    {
+        // Arrange
+        var suffix = Guid.NewGuid().ToString("N");
+
+        var projectC = new Project(
+            $"Project C {suffix}",
+            FixedNow,
+            "3番目");
+
+        var projectA = new Project(
+            $"Project A {suffix}",
+            FixedNow,
+            "1番目");
+
+        var projectB = new Project(
+            $"Project B {suffix}",
+            FixedNow,
+            "2番目");
+
+        projectC.Deactivate(FixedNow);
+
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            dbContext.Projects.AddRange(
+                projectC,
+                projectA,
+                projectB);
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            var repository = new ProjectRepository(dbContext);
+
+            // Act
+            var result = await repository.GetAllAsync();
+
+            // Assert
+            var actual = result
+                .Where(project =>
+                    project.Name.EndsWith(suffix))
+                .ToList();
+
+            Assert.Collection(
+                actual,
+                project => Assert.Equal(projectA.Name, project.Name),
+                project => Assert.Equal(projectB.Name, project.Name),
+                project => Assert.Equal(projectC.Name, project.Name));
+
+            // 無効化されたプロジェクトも取得される
+            Assert.False(actual[2].IsActive);
+        }
+    }
 }

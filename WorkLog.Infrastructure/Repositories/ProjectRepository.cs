@@ -52,4 +52,13 @@ public sealed class ProjectRepository(
                 project => project.NormalizedName == normalizedName,
                 cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Project>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Projects
+            .AsNoTracking()
+            .OrderBy(project => project.Name)
+            .ToListAsync(cancellationToken);
+    }
 }

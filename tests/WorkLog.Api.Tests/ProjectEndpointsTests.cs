@@ -79,6 +79,52 @@ public class ProjectEndpointsTests(
             "同じ名前のプロジェクトが既に存在します。",
             error.Message);
     }
+
+    [Fact]
+    public async Task GetProjects_ShouldReturnProjectsOrderedByName()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var suffix = Guid.NewGuid().ToString("N");
+
+        var projectC = new CreateProjectRequest(
+            $"Project C {suffix}",
+            "3番目");
+
+        var projectA = new CreateProjectRequest(
+            $"Project A {suffix}",
+            "1番目");
+
+        var projectB = new CreateProjectRequest(
+            $"Project B {suffix}",
+            "2番目");
+
+        await client.PostAsJsonAsync("/api/projects", projectC);
+        await client.PostAsJsonAsync("/api/projects", projectA);
+        await client.PostAsJsonAsync("/api/projects", projectB);
+
+        // Act
+        var response = await client.GetAsync("/api/projects");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var projects = await response.Content
+            .ReadFromJsonAsync<List<ProjectResponse>>();
+
+        Assert.NotNull(projects);
+
+        var actual = projects
+            .Where(project => project.Name.EndsWith(suffix))
+            .ToList();
+
+        Assert.Collection(
+            actual,
+            project => Assert.StartsWith($"Project A {suffix}", project.Name),
+            project => Assert.StartsWith($"Project B {suffix}", project.Name),
+            project => Assert.StartsWith($"Project C {suffix}", project.Name));
+    }
 }
 
 public sealed record DuplicateProjectNameErrorResponse(

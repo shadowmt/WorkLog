@@ -1,8 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using WorkLog.Api.Contracts.Projects;
 using WorkLog.Application.Exceptions;
 using WorkLog.Application.UseCases;
-using WorkLog.Infrastructure.Persistence;
 
 namespace WorkLog.Api.Endpoints;
 
@@ -12,20 +10,20 @@ public static class ProjectEndpoints
         this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/projects", async (
-            WorkLogDbContext dbContext,
+            GetProjectsUseCase useCase,
             CancellationToken cancellationToken) =>
         {
-            var projects = await dbContext.Projects
-                .AsNoTracking()
-                .OrderBy(x => x.Name)
-                .Select(x => new ProjectResponse(
-                    x.Id,
-                    x.Name,
-                    x.Description,
-                    x.IsActive))
-                .ToListAsync(cancellationToken);
+            var projects = await useCase.ExecuteAsync(cancellationToken);
 
-            return Results.Ok(projects);
+            var response = projects
+                .Select(project => new ProjectResponse(
+                    project.Id,
+                    project.Name,
+                    project.Description,
+                    project.IsActive))
+                .ToList();
+
+            return Results.Ok(response);
         });
 
         app.MapPost("/api/projects", async (

@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<CreateWorkLogEntryUseCase>();
         services.AddScoped<GetWorkLogEntriesUseCase>();
         services.AddScoped<CreateProjectUseCase>();
+        services.AddScoped<GetProjectsUseCase>();
 
         return services;
     }
