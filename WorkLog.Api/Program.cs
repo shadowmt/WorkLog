@@ -1,10 +1,12 @@
 using WorkLog.Application;
 using WorkLog.Api.Endpoints;
+using WorkLog.Api.OpenApi;
 using WorkLog.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+    options.AddOperationTransformer(new UpdateWorkLogEntryRequestBodyTransformer()));
 builder.Services.AddValidation();
 
 builder.Services.AddSingleton<TimeProvider>(

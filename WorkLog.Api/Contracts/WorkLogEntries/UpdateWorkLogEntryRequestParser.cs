@@ -5,6 +5,18 @@ namespace WorkLog.Api.Contracts.WorkLogEntries;
 
 public static class UpdateWorkLogEntryRequestParser
 {
+    /// <summary>durationMinutes の下限。OpenAPI スキーマと検証で共有する。</summary>
+    public const int MinDurationMinutes = 1;
+
+    /// <summary>durationMinutes の上限。OpenAPI スキーマと検証で共有する。</summary>
+    public const int MaxDurationMinutes = 1440;
+
+    /// <summary>description の文字数下限。クリアは null で表すため 1 文字以上。OpenAPI スキーマと検証で共有する。</summary>
+    public const int MinDescriptionLength = 1;
+
+    /// <summary>description の文字数上限。OpenAPI スキーマと検証で共有する。</summary>
+    public const int MaxDescriptionLength = 2000;
+
     public static UpdateWorkLogEntryRequest Parse(JsonElement json)
     {
         if (json.ValueKind != JsonValueKind.Object)
@@ -67,8 +79,8 @@ public static class UpdateWorkLogEntryRequestParser
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("descriptionは空にできません。");
 
-        if (description.Length > 2000)
-            throw new ArgumentException("descriptionは2000文字以内にしてください。");
+        if (description.Length > MaxDescriptionLength)
+            throw new ArgumentException($"descriptionは{MaxDescriptionLength}文字以内にしてください。");
 
         return Optional<string>.Specified(description);
     }
@@ -80,10 +92,10 @@ public static class UpdateWorkLogEntryRequestParser
 
         if (value.ValueKind != JsonValueKind.Number ||
             !value.TryGetInt32(out var durationMinutes) ||
-            durationMinutes is < 1 or > 1440)
+            durationMinutes is < MinDurationMinutes or > MaxDurationMinutes)
         {
             throw new ArgumentException(
-                "durationMinutesは1から1440までの整数である必要があります。");
+                $"durationMinutesは{MinDurationMinutes}から{MaxDurationMinutes}までの整数である必要があります。");
         }
 
         return Optional<int>.Specified(durationMinutes);

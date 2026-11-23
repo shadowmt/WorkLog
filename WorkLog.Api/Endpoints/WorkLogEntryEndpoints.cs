@@ -7,6 +7,12 @@ namespace WorkLog.Api.Endpoints;
 
 public static class WorkLogEntryEndpoints
 {
+    /// <summary>
+    /// PATCH のルートテンプレート。<see cref="OpenApi.UpdateWorkLogEntryRequestBodyTransformer"/>
+    /// が同じ値で対象オペレーションを特定するため、変更する場合は両方に反映されること。
+    /// </summary>
+    internal const string UpdateRouteTemplate = "/api/work-log-entries/{id:guid}";
+
     public static IEndpointRouteBuilder MapWorkLogEntryEndpoints(
         this IEndpointRouteBuilder app)
     {
@@ -105,7 +111,7 @@ public static class WorkLogEntryEndpoints
             }
         });
 
-        app.MapPatch("/api/work-log-entries/{id:guid}", async (
+        app.MapPatch(UpdateRouteTemplate, async (
             Guid id,
             JsonElement json,
             UpdateWorkLogEntryUseCase useCase,
@@ -139,7 +145,10 @@ public static class WorkLogEntryEndpoints
             {
                 return Results.BadRequest(new { message = ex.Message });
             }
-        });
+        })
+            .Produces<WorkLogEntryResponse>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
 
         return app;
     }
