@@ -1,8 +1,10 @@
-﻿using System.Net;
-using System.Net.Http.Json;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using WorkLog.Api.Contracts.WorkLogEntries;
+using System.Net;
+using System.Net.Http.Json;
 using WorkLog.Api.Contracts.Projects;
+using WorkLog.Api.Contracts.WorkLogEntries;
+using WorkLog.Domain.Entities;
 using WorkLog.Infrastructure.Persistence;
 
 namespace WorkLog.Api.Tests;
@@ -910,5 +912,426 @@ public class WorkLogEntryEndpointsTests(
         Assert.Empty(result.Items);
         Assert.Equal(0, result.TotalCount);
         Assert.Equal(0, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldUpdateDescription_WhenDescriptionIsSpecified()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "変更前の作業記録",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var createdEntry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(createdEntry);
+
+        const string newDescription = "変更後の作業記録";
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{createdEntry.Id}",
+            new { description = newDescription });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(createdEntry.Id, result.Id);
+        Assert.Equal(createdEntry.WorkDate, result.WorkDate);
+        Assert.Equal(createdEntry.ProjectId, result.ProjectId);
+        Assert.Equal(newDescription, result.Description);
+        Assert.Equal(createdEntry.DurationMinutes, result.DurationMinutes);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldReturnNotFound_WhenEntryDoesNotExist()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var entryId = Guid.NewGuid();
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{entryId}",
+            new { description = "更新後の説明" });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldReturnNotFound_WhenTargetProjectDoesNotExist()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "変更前の作業記録",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var createdEntry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(createdEntry);
+
+        var missingProjectId = Guid.NewGuid();
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{createdEntry.Id}",
+            new { projectId = missingProjectId });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldAllowInactiveProject_WhenProjectIdIsSpecified()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        // 変更前のProjectを作成
+        var originalProjectRequest = new CreateProjectRequest(
+            $"Original Project {Guid.NewGuid():N}",
+            "Original project");
+
+        var originalProjectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            originalProjectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, originalProjectResponse.StatusCode);
+
+        var originalProject = await originalProjectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(originalProject);
+
+        // 変更先のProjectを作成
+        var targetProjectRequest = new CreateProjectRequest(
+            $"Target Project {Guid.NewGuid():N}",
+            "Target project");
+
+        var targetProjectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            targetProjectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, targetProjectResponse.StatusCode);
+
+        var targetProject = await targetProjectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(targetProject);
+
+        // WorkLogEntryを作成
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            originalProject.Id,
+            "既存の作業記録",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var createdEntry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(createdEntry);
+
+        // テスト用DbContextから変更先Projectを無効化
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider
+                .GetRequiredService<WorkLogDbContext>();
+
+            var project = await dbContext.Set<Project>()
+                .SingleAsync(x => x.Id == targetProject.Id);
+
+            project.Deactivate(factory.FakeTimeProvider.GetUtcNow());
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{createdEntry.Id}",
+            new { projectId = targetProject.Id });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(targetProject.Id, result.ProjectId);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldReturnBadRequest_WhenNoFieldsAreSpecified()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "API integration test work",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var entry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(entry);
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{entry.Id}",
+            new { });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldReturnBadRequest_WhenDescriptionIsNull()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "API integration test work",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var entry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(entry);
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{entry.Id}",
+            new { description = (string?)null });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldUpdateWorkDate_WhenWorkDateIsSpecified()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var originalWorkDate = new DateOnly(2026, 11, 20);
+        var updatedWorkDate = new DateOnly(2026, 11, 19);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            originalWorkDate,
+            project.Id,
+            "API integration test work",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var entry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(entry);
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{entry.Id}",
+            new { workDate = updatedWorkDate });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(updatedWorkDate, result.WorkDate);
+        Assert.Equal(project.Id, result.ProjectId);
+        Assert.Equal(createRequest.Description, result.Description);
+        Assert.Equal(createRequest.DurationMinutes, result.DurationMinutes);
+    }
+
+    [Fact]
+    public async Task PatchWorkLogEntry_ShouldUpdateDurationMinutes_WhenDurationMinutesIsSpecified()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "API integration test work",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var entry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(entry);
+
+        const int updatedDurationMinutes = 120;
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/api/work-log-entries/{entry.Id}",
+            new { durationMinutes = updatedDurationMinutes });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(result);
+        Assert.Equal(createRequest.WorkDate, result.WorkDate);
+        Assert.Equal(project.Id, result.ProjectId);
+        Assert.Equal(createRequest.Description, result.Description);
+        Assert.Equal(updatedDurationMinutes, result.DurationMinutes);
     }
 }

@@ -82,4 +82,21 @@ public sealed class WorkLogEntryRepository(
             totalCount,
             totalPages);
     }
+
+    public async Task<WorkLogEntry?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.WorkLogEntries
+            .FirstOrDefaultAsync(
+                x => x.Id == id,
+                cancellationToken);
+    }
+
+    public async Task UpdateAsync(
+        WorkLogEntry workLogEntry,
+        CancellationToken cancellationToken = default)
+    {
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

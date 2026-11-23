@@ -12,4 +12,12 @@ public interface IWorkLogEntryRepository
     Task<PagedResult<WorkLogEntryListItem>> GetPagedAsync(
         WorkLogEntrySearchCriteria criteria,
         CancellationToken cancellationToken = default);
+
+    Task<WorkLogEntry?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task UpdateAsync(
+        WorkLogEntry workLogEntry,
+        CancellationToken cancellationToken = default);
 }

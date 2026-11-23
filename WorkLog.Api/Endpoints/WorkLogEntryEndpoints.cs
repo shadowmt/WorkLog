@@ -1,4 +1,5 @@
-﻿using WorkLog.Api.Contracts.WorkLogEntries;
+﻿using System.Text.Json;
+using WorkLog.Api.Contracts.WorkLogEntries;
 using WorkLog.Application.Models;
 using WorkLog.Application.UseCases;
 
@@ -93,6 +94,42 @@ public static class WorkLogEntryEndpoints
                     result.TotalPages);
 
                 return Results.Ok(response);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { message = ex.Message });
+            }
+        });
+
+        app.MapPatch("/api/work-log-entries/{id:guid}", async (
+            Guid id,
+            JsonElement json,
+            UpdateWorkLogEntryUseCase useCase,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var request = UpdateWorkLogEntryRequestParser.Parse(json);
+
+                var entry = await useCase.ExecuteAsync(
+                    id,
+                    request.WorkDate,
+                    request.ProjectId,
+                    request.Description,
+                    request.DurationMinutes,
+                    cancellationToken);
+
+                return Results.Ok(
+                    new WorkLogEntryResponse(
+                        entry.Id,
+                        entry.WorkDate,
+                        entry.ProjectId,
+                        entry.Description,
+                        entry.DurationMinutes));
             }
             catch (KeyNotFoundException ex)
             {
