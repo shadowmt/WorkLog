@@ -49,6 +49,8 @@ public sealed class UpdateWorkLogEntryUseCase(
                 nameof(projectId));
         }
 
+        // 既存のWorkLogEntryの更新では、無効化済みProjectへの変更も許可する。
+        // 新規登録時とは異なり、既存の作業実績の修正を妨げないため、ここでは存在確認のみ行う。
         if (projectId.IsSpecified)
         {
             var project = await projectRepository.GetByIdAsync(

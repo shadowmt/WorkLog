@@ -152,6 +152,12 @@ public class UpdateWorkLogEntryUseCaseTests
                     x.UpdatedAt == FixedNow),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+
+        _projectRepository.Verify(
+            x => x.GetByIdAsync(
+                targetProject.Id,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
