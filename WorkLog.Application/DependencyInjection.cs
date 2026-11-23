@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<CreateWorkLogEntryUseCase>();
         services.AddScoped<GetWorkLogEntriesUseCase>();
         services.AddScoped<UpdateWorkLogEntryUseCase>();
+        services.AddScoped<DeleteWorkLogEntryUseCase>();
         services.AddScoped<CreateProjectUseCase>();
         services.AddScoped<GetProjectsUseCase>();
 

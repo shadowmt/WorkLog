@@ -99,4 +99,13 @@ public sealed class WorkLogEntryRepository(
     {
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(
+        WorkLogEntry workLogEntry,
+        CancellationToken cancellationToken = default)
+    {
+        dbContext.WorkLogEntries.Remove(workLogEntry);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

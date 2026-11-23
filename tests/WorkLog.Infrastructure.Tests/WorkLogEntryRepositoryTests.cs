@@ -676,4 +676,52 @@ public class WorkLogEntryRepositoryTests(TestDatabaseFixture fixture)
         Assert.Equal(3, actual.TotalCount);
         Assert.Equal(2, actual.TotalPages);
     }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldRemoveWorkLogEntry()
+    {
+        // Arrange
+        var project = new Project(
+            $"削除テスト_{Guid.NewGuid():N}",
+            FixedNow,
+            "作業実績の削除テスト");
+
+        var entry = new WorkLogEntry(
+            new DateOnly(2026, 11, 19),
+            project.Id,
+            "削除対象の作業記録",
+            60,
+            FixedNow);
+
+        var entryId = entry.Id;
+
+        // テストデータを登録
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            dbContext.Projects.Add(project);
+            dbContext.WorkLogEntries.Add(entry);
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            var repository = new WorkLogEntryRepository(dbContext);
+
+            var target = await repository.GetByIdAsync(entryId);
+
+            Assert.NotNull(target);
+
+            await repository.DeleteAsync(target);
+        }
+
+        // Assert
+        await using (var dbContext = fixture.CreateDbContext())
+        {
+            var actual = await dbContext.WorkLogEntries
+                .SingleOrDefaultAsync(x => x.Id == entryId);
+
+            Assert.Null(actual);
+        }
+    }
 }

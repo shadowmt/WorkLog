@@ -20,4 +20,8 @@ public interface IWorkLogEntryRepository
     Task UpdateAsync(
         WorkLogEntry workLogEntry,
         CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(
+        WorkLogEntry workLogEntry,
+        CancellationToken cancellationToken = default);
 }

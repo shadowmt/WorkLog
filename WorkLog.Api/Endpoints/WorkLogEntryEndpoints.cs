@@ -8,7 +8,8 @@ namespace WorkLog.Api.Endpoints;
 public static class WorkLogEntryEndpoints
 {
     /// <summary>
-    /// PATCH のルートテンプレート。<see cref="OpenApi.UpdateWorkLogEntryRequestBodyTransformer"/>
+    /// PATCH と DELETE で共有する ID 指定のルートテンプレート。
+    /// <see cref="OpenApi.UpdateWorkLogEntryRequestBodyTransformer"/>
     /// が同じ値で対象オペレーションを特定するため、変更する場合は両方に反映されること。
     /// </summary>
     internal const string UpdateRouteTemplate = "/api/work-log-entries/{id:guid}";
@@ -148,6 +149,25 @@ public static class WorkLogEntryEndpoints
         })
             .Produces<WorkLogEntryResponse>()
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+        app.MapDelete(UpdateRouteTemplate, async (
+            Guid id,
+            DeleteWorkLogEntryUseCase useCase,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await useCase.ExecuteAsync(id, cancellationToken);
+
+                return Results.NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { message = ex.Message });
+            }
+        })
+            .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
         return app;

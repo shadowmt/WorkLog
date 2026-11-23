@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using WorkLog.Api.Contracts.Projects;
 using WorkLog.Api.Contracts.WorkLogEntries;
 using WorkLog.Domain.Entities;
@@ -1338,5 +1339,94 @@ public class WorkLogEntryEndpointsTests(
         Assert.Equal(project.Id, result.ProjectId);
         Assert.Equal(createRequest.Description, result.Description);
         Assert.Equal(updatedDurationMinutes, result.DurationMinutes);
+    }
+
+    [Fact]
+    public async Task DeleteWorkLogEntry_ShouldReturnNoContent_WhenEntryExists()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var projectRequest = new CreateProjectRequest(
+            $"API Test Project {Guid.NewGuid():N}",
+            "API integration test");
+
+        var projectResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            projectRequest);
+
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+
+        var project = await projectResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>();
+
+        Assert.NotNull(project);
+
+        var createRequest = new CreateWorkLogEntryRequest(
+            new DateOnly(2026, 11, 20),
+            project.Id,
+            "削除対象の作業記録",
+            60);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/work-log-entries",
+            createRequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var createdEntry = await createResponse.Content
+            .ReadFromJsonAsync<WorkLogEntryResponse>();
+
+        Assert.NotNull(createdEntry);
+
+        // 削除前に一覧へ現れることを確認しておく（削除後の不在検証を空虚にしないため）。
+        // テスト DB は実行をまたいで行が残るため、プロジェクトで絞り込んで自テストの行だけを見る。
+        var listUrl =
+            $"/api/work-log-entries?from=2026-11-20&to=2026-11-20&projectId={project.Id}";
+
+        Assert.Contains(createdEntry.Id, await GetWorkLogEntryIdsAsync(client, listUrl));
+
+        // Act
+        var response = await client.DeleteAsync(
+            $"/api/work-log-entries/{createdEntry.Id}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        // 削除後に一覧から取得できないことを確認
+        Assert.DoesNotContain(createdEntry.Id, await GetWorkLogEntryIdsAsync(client, listUrl));
+
+        static async Task<ICollection<Guid>> GetWorkLogEntryIdsAsync(
+            HttpClient httpClient,
+            string requestUri)
+        {
+            var listResponse = await httpClient.GetAsync(requestUri);
+
+            Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+
+            using var json = await JsonDocument.ParseAsync(
+                await listResponse.Content.ReadAsStreamAsync());
+
+            return json.RootElement.GetProperty("items")
+                .EnumerateArray()
+                .Select(item => item.GetProperty("id").GetGuid())
+                .ToList();
+        }
+    }
+
+    [Fact]
+    public async Task DeleteWorkLogEntry_ShouldReturnNotFound_WhenEntryDoesNotExist()
+    {
+        // Arrange
+        using var client = factory.CreateClient();
+
+        var entryId = Guid.NewGuid();
+
+        // Act
+        var response = await client.DeleteAsync(
+            $"/api/work-log-entries/{entryId}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }
