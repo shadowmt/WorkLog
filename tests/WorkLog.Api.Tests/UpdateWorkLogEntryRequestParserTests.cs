@@ -242,4 +242,36 @@ public class UpdateWorkLogEntryRequestParserTests
         Assert.True(request.DurationMinutes.IsSpecified);
         Assert.Equal(120, request.DurationMinutes.Value);
     }
+
+    [Fact]
+    public void Parse_ShouldSetDescription_WhenPropertyNameIsPascalCase()
+    {
+        // Arrange
+        using var document = JsonDocument.Parse(
+            """{"Description":"設計書を作成"}""");
+
+        // Act
+        var request = UpdateWorkLogEntryRequestParser.Parse(
+            document.RootElement);
+
+        // Assert
+        Assert.True(request.Description.IsSpecified);
+        Assert.Equal("設計書を作成", request.Description.Value);
+    }
+
+    [Fact]
+    public void Parse_ShouldSetDescription_WhenPropertyNameHasMixedCase()
+    {
+        // Arrange
+        using var document = JsonDocument.Parse(
+            """{"DeScRiPtIoN":"設計書を作成"}""");
+
+        // Act
+        var request = UpdateWorkLogEntryRequestParser.Parse(
+            document.RootElement);
+
+        // Assert
+        Assert.True(request.Description.IsSpecified);
+        Assert.Equal("設計書を作成", request.Description.Value);
+    }
 }

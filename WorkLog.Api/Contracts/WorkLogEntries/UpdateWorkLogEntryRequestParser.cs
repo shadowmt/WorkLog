@@ -22,7 +22,7 @@ public static class UpdateWorkLogEntryRequestParser
 
     private static Optional<DateOnly> ParseWorkDate(JsonElement json)
     {
-        if (!json.TryGetProperty("workDate", out var value))
+        if (!TryGetPropertyIgnoreCase(json, "workDate", out var value))
             return Optional<DateOnly>.Unspecified;
 
         if (value.ValueKind != JsonValueKind.String)
@@ -42,7 +42,7 @@ public static class UpdateWorkLogEntryRequestParser
 
     private static Optional<Guid> ParseProjectId(JsonElement json)
     {
-        if (!json.TryGetProperty("projectId", out var value))
+        if (!TryGetPropertyIgnoreCase(json, "projectId", out var value))
             return Optional<Guid>.Unspecified;
 
         if (value.ValueKind != JsonValueKind.String ||
@@ -56,7 +56,7 @@ public static class UpdateWorkLogEntryRequestParser
 
     private static Optional<string> ParseDescription(JsonElement json)
     {
-        if (!json.TryGetProperty("description", out var value))
+        if (!TryGetPropertyIgnoreCase(json, "description", out var value))
             return Optional<string>.Unspecified;
 
         if (value.ValueKind != JsonValueKind.String)
@@ -75,7 +75,7 @@ public static class UpdateWorkLogEntryRequestParser
 
     private static Optional<int> ParseDurationMinutes(JsonElement json)
     {
-        if (!json.TryGetProperty("durationMinutes", out var value))
+        if (!TryGetPropertyIgnoreCase(json, "durationMinutes", out var value))
             return Optional<int>.Unspecified;
 
         if (value.ValueKind != JsonValueKind.Number ||
@@ -87,5 +87,28 @@ public static class UpdateWorkLogEntryRequestParser
         }
 
         return Optional<int>.Specified(durationMinutes);
+    }
+
+    private static bool TryGetPropertyIgnoreCase(
+        JsonElement json,
+        string propertyName,
+        out JsonElement value)
+    {
+        value = default;
+        var found = false;
+
+        foreach (var property in json.EnumerateObject())
+        {
+            if (string.Equals(
+                property.Name,
+                propertyName,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                found = true;
+            }
+        }
+
+        return found;
     }
 }

@@ -915,7 +915,7 @@ public class WorkLogEntryEndpointsTests(
     }
 
     [Fact]
-    public async Task PatchWorkLogEntry_ShouldUpdateDescription_WhenDescriptionIsSpecified()
+    public async Task PatchWorkLogEntry_ShouldUpdateDescription_WhenDescriptionPropertyNameIsPascalCase()
     {
         // Arrange
         using var client = factory.CreateClient();
@@ -955,9 +955,14 @@ public class WorkLogEntryEndpointsTests(
         const string newDescription = "変更後の作業記録";
 
         // Act
-        var response = await client.PatchAsJsonAsync(
+        using var content = new StringContent(
+            """{"Description":"変更後の作業記録"}""",
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        var response = await client.PatchAsync(
             $"/api/work-log-entries/{createdEntry.Id}",
-            new { description = newDescription });
+            content);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
